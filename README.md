@@ -2,12 +2,13 @@
 ---
 ![Flutter](https://img.shields.io/badge/Flutter-02569B?style=for-the-badge&logo=flutter&logoColor=white) ![Dart](https://img.shields.io/badge/Dart-0175C2?style=for-the-badge&logo=dart&logoColor=white) ![Firebase](https://img.shields.io/badge/Firebase-FFCA28?style=for-the-badge&logo=firebase&logoColor=black)
 
-## Descrição: Aplicativo multiplataforma (Android, iOS e Web) focado no controle financeiro pessoal, permitindo o rastreamento de gastos mensais por categorias e a visualização de dashboards intuitivos.
+## Descrição: 
+Aplicativo multiplataforma (Android, iOS e Web) focado no controle financeiro pessoal, permitindo o rastreamento de gastos mensais por categorias e a visualização de dashboards intuitivos.
 ---
 ### 1. Mapeamento de Usuários
 Nesta seção, identificamos quem interagirá com o sistema:
-- **Usuário Comum (Cidadão/Estudante)**: Pessoa física que utiliza o aplicativo para registrar suas receitas e despesas diárias, criar categorias de gastos e acompanhar o impacto financeiro no seu mês através de painéis gráficos.
-- **Administrador do Sistema (Opcional para o futuro)**: Responsável por gerenciar categorias globais padrão, manter a segurança da plataforma e analisar métricas anonimizadas de uso.
+- Usuário Comum (Cidadão/Estudante): Pessoa física que utiliza o aplicativo para registrar suas receitas e despesas diárias, criar categorias de gastos e acompanhar o impacto financeiro no seu mês através de painéis gráficos.
+- Administrador do Sistema (Opcional para o futuro): Responsável por gerenciar categorias globais padrão, manter a segurança da plataforma e analisar métricas anonimizadas de uso.
 ---
 ### 2. Requisitos Técnicos
 Conforme as bases tecnológicas definidas para o projeto:
@@ -59,12 +60,11 @@ Para facilitar as consultas e garantir que um usuário só veja os próprios dad
   "mesAno": "08-2026" 
 }
 ```
-*NOTA: campo `mesAno` facilita a filtragem dos dashboards sem precisar processar datas complexas no front-end*
 ---
 ### 6. Documentação de Fluxo e Regras de Segurança (Firestore Rules)
 Como não há um servidor backend intermediário, a validação de regras de negócio será feita através das Regras de Segurança do Firebase:  
 - Autenticação Obrigatória: O usuário só pode ler, criar, editar ou excluir documentos que estejam dentro do seu próprio `uid`.
-- Validação de Dados: As regras garantirão que o campo `seja` um número positivo e que o campo `tipo` aceite apenas "RECEITA" ou "DESPESA".
+- Validação de Dados: As regras garantirão que o campo `seja`  um número positivo e que o campo `tipo` aceite apenas "RECEITA" ou "DESPESA".
 - Comunicação: O Frontend em Flutter utilizará os pacotes oficiais `firebase_core`, `firebase_auth` e `cloud_firestore` para realizar o CRUD diretamente no banco.
 ---
 ### 7. Modelagem e Casos de Uso
@@ -76,10 +76,10 @@ Caso de Uso: UC01 - Registrar Gasto Mensal
 - Ator: Usuário Comum.  
 - Pré-condição: Usuário autenticado via Firebase Auth.  
 - Fluxo Principal:  
-1. O usuário preenche os dados da transação no Flutter.
-2. O frontend valida os campos obrigatórios localmente.
-3. O aplicativo chama o método `.add()` da coleção `transacoes` no Firestore.
-4. As Firestore Rules validam a operação na nuvem.
-5. O documento é criado com sucesso.
-6. O StreamBuilder do Flutter detecta a mudança e atualiza o gráfico no dashboard automaticamente.
+   1. O usuário preenche os dados da transação no Flutter.
+   2. O frontend valida os campos obrigatórios localmente.
+   3. O aplicativo chama o método `.add()`  da coleção `transacoes`  no Firestore.
+   4. As Firestore Rules validam a operação na nuvem.
+   5. O documento é criado com sucesso.
+   6. O StreamBuilder do Flutter detecta a mudança e atualiza o gráfico no dashboard automaticamente.
 ---
