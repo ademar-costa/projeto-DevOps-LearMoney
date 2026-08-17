@@ -1,4 +1,4 @@
-# Título do Projeto: *ClearMoney**
+# Título do Projeto: ClearMoney
 ---
 ![Flutter](https://img.shields.io/badge/Flutter-02569B?style=for-the-badge&logo=flutter&logoColor=white) ![Dart](https://img.shields.io/badge/Dart-0175C2?style=for-the-badge&logo=dart&logoColor=white) ![Firebase](https://img.shields.io/badge/Firebase-FFCA28?style=for-the-badge&logo=firebase&logoColor=black)
 
@@ -32,25 +32,24 @@ Uma lista priorizada de funcionalidades para guiar o desenvolvimento incremental
 Mesmo sem o backend definido, já deixamos o formato de comunicação (JSON) padronizado.
 Exemplo de Endpoint: Resumo de Transações do Mês.
 
-
 **Coleção Principal**: `usuarios`
 Cada usuário terá um documento cujo ID é o seu UID de autenticação gerado pelo Firebase Auth.
 
 - Caminho: `usuarios/{uid}`
 - Dados do Documento: 
-`
+```
 {
   "nome": "Ademar Neto",
   "email": "ademar@email.com",
   "dataCriacao": "2026-08-17T16:00:00Z"
 }
-`
+```
 **Subcoleção**: `transacoes`
 Para facilitar as consultas e garantir que um usuário só veja os próprios dados, as transações ficarão dentro do documento do usuário.
 
 - Caminho: `usuarios/{uid}/transacoes/{transacaoId}`
 - Dados do Documento (Exemplo de Inserção/Leitura):
-`
+```
 {
   "categoriaId": "cat_alimentacao",
   "tipo": "DESPESA",
@@ -59,7 +58,7 @@ Para facilitar as consultas e garantir que um usuário só veja os próprios dad
   "descricao": "Compra no supermercado",
   "mesAno": "08-2026" 
 }
-`
+```
 *NOTA: campo `mesAno` facilita a filtragem dos dashboards sem precisar processar datas complexas no front-end*
 ---
 ### 6. Documentação de Fluxo e Regras de Segurança (Firestore Rules)
