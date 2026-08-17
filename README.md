@@ -64,7 +64,7 @@ Para facilitar as consultas e garantir que um usuário só veja os próprios dad
 ### 6. Documentação de Fluxo e Regras de Segurança (Firestore Rules)
 Como não há um servidor backend intermediário, a validação de regras de negócio será feita através das Regras de Segurança do Firebase:  
 - Autenticação Obrigatória: O usuário só pode ler, criar, editar ou excluir documentos que estejam dentro do seu próprio `uid`.
-- Validação de Dados: As regras garantirão que o campo `seja`  um número positivo e que o campo `tipo` aceite apenas "RECEITA" ou "DESPESA".
+- Validação de Dados: As regras garantirão que o campo `valor`  seja um número positivo e que o campo `tipo` aceite apenas "RECEITA" ou "DESPESA".
 - Comunicação: O Frontend em Flutter utilizará os pacotes oficiais `firebase_core`, `firebase_auth` e `cloud_firestore` para realizar o CRUD diretamente no banco.
 ---
 ### 7. Modelagem e Casos de Uso
