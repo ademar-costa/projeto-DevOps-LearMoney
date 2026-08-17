@@ -1,6 +1,5 @@
 # Título do Projeto: ClearMoney
----
-![Flutter](https://img.shields.io/badge/Flutter-02569B?style=for-the-badge&logo=flutter&logoColor=white) ![Dart](https://img.shields.io/badge/Dart-0175C2?style=for-the-badge&logo=dart&logoColor=white) ![Firebase](https://img.shields.io/badge/Firebase-FFCA28?style=for-the-badge&logo=firebase&logoColor=black)
+![Dart](https://img.shields.io/badge/Dart-0175C2?style=for-the-badge&logo=dart&logoColor=white)![Flutter](https://img.shields.io/badge/Flutter-02569B?style=for-the-badge&logo=flutter&logoColor=white) ![Firebase](https://img.shields.io/badge/Firebase-FFCA28?style=for-the-badge&logo=firebase&logoColor=black)
 
 ## Descrição: 
 Aplicativo multiplataforma (Android, iOS e Web) focado no controle financeiro pessoal, permitindo o rastreamento de gastos mensais por categorias e a visualização de dashboards intuitivos.
@@ -71,6 +70,7 @@ Como não há um servidor backend intermediário, a validação de regras de neg
 **Modelagem de Requisitos Detalhada:**  
 - RF01 - Registrar Transação: O sistema deve persistir a despesa ou receita como um documento no Firestore, vinculado ao UID do usuário autenticado.
 - RNF01 - Persistência em Tempo Real: A aplicação deve utilizar a capacidade real-time do Firestore para que, ao adicionar uma despesa, o dashboard seja recalculado e atualizado na interface sem necessidade de recarregar a tela.
+
 **Casos de Uso Técnicos**  
 Caso de Uso: UC01 - Registrar Gasto Mensal
 - Ator: Usuário Comum.  
