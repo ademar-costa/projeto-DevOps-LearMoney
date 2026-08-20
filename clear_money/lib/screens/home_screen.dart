@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dashboard_tab.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -51,14 +52,9 @@ class HomeScreen extends StatelessWidget {
         ),
         // O TabBarView mostra o conteúdo correspondente a cada aba.
         // Como o DefaultTabController tem length: 2, o TabBarView precisa ter exatamente 2 filhos (children).
-        body: const TabBarView(
+       body: const TabBarView(
           children: [
-            Center(
-              child: Text(
-                'Tela do Dashboard em construção...', 
-                style: TextStyle(color: Colors.white)
-              ),
-            ),
+            DashboardTab(), // Chamamos a nossa nova tela aqui!
             Center(
               child: Text(
                 'Tela de Inserir Gasto em construção...', 
