@@ -1,10 +1,10 @@
 # Título do Projeto: ClearMoney
 ![Dart](https://img.shields.io/badge/Dart-0175C2?style=for-the-badge&logo=dart&logoColor=white) ![Flutter](https://img.shields.io/badge/Flutter-02569B?style=for-the-badge&logo=flutter&logoColor=white) ![Firebase](https://img.shields.io/badge/Firebase-FFCA28?style=for-the-badge&logo=firebase&logoColor=black)
 
-Projeto: ClearMoney - Controle de Gastos Pessoais
-Instituição: Instituto Federal de Educação, Ciência e Tecnologia de Brasília (IFB)
-Curso: Sistemas para Internet
-Tecnologias: Dart, Flutter e Firebase(BaaS)
+- Projeto: ClearMoney - Controle de Gastos Pessoais;
+- Instituição: Instituto Federal de Educação, Ciência e Tecnologia de Brasília (IFB);
+- Curso: Sistemas para Internet;
+- Tecnologias: Dart, Flutter e Firebase(BaaS).
 
 ## Descrição 
 Aplicativo multiplataforma (Android, iOS e Web) focado no controle financeiro pessoal, permitindo o rastreamento de gastos mensais por categorias e a visualização de dashboards intuitivos.
