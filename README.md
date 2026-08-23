@@ -1,6 +1,11 @@
 # Título do Projeto: ClearMoney
 ![Dart](https://img.shields.io/badge/Dart-0175C2?style=for-the-badge&logo=dart&logoColor=white) ![Flutter](https://img.shields.io/badge/Flutter-02569B?style=for-the-badge&logo=flutter&logoColor=white) ![Firebase](https://img.shields.io/badge/Firebase-FFCA28?style=for-the-badge&logo=firebase&logoColor=black)
 
+Projeto: ClearMoney - Controle de Gastos Pessoais
+Instituição: Instituto Federal de Educação, Ciência e Tecnologia de Brasília (IFB)
+Curso: Sistemas para Internet
+Tecnologias: Dart, Flutter e Firebase(BaaS)
+
 ## Descrição 
 Aplicativo multiplataforma (Android, iOS e Web) focado no controle financeiro pessoal, permitindo o rastreamento de gastos mensais por categorias e a visualização de dashboards intuitivos.
 ---
@@ -12,53 +17,30 @@ Nesta seção, identificamos quem interagirá com o sistema:
 ### Requisitos Técnicos
 Conforme as bases tecnológicas definidas para o projeto:
 - Frontend: Interface responsiva e fluida construída com Dart e Flutter, garantindo compilação nativa para Android, iOS e adaptação para Web.
-- Backend & API REST: Servidor (*tecnologia a ser definida*) para processamento das regras de negócio, cálculo de métricas dos dashboards e exposição de endpoints.
-- Persistência de Dados: Banco de dados (*a ser definido em conjunto com o backend*) para armazenar histórico de transações, categorias e perfis de usuários.
-- Validação: Implementação de regras para impedir registros com valores negativos ou datas inconsistentes, garantindo a integridade dos cálculos financeiros.
-- Configuração por Ambiente: Uso de variáveis de ambiente no Flutter (ex: flutter_dotenv) para separar as conexões de desenvolvimento e produção.
+- Backend & Banco de Dados: Utilização da plataforma Firebase (BaaS) para autenticação e persistência de dados em tempo real utilizando o Cloud Firestore.
+- Validação: Implementação de regras no frontend para impedir registros inconsistentes (como valores nulos) e no backend através de Firestore Rules.
 ---
 ### Backlog Inicial
 Uma lista priorizada de funcionalidades para guiar o desenvolvimento incremental:
-- Autenticação de Usuário: Cadastro e login para manter a privacidade dos dados financeiros.  
-- CRUD de Categorias e Subcategorias: Criar, listar, atualizar e deletar categorias de gastos (ex: Alimentação > Supermercado, Transporte > Combustível).  
-- Registro de Transações: Fluxo principal para entrada de despesas e receitas, vinculadas a datas, valores e categorias.Dashboards e Relatórios: Visualização gráfica (gráficos de pizza/barras) sumarizando com o que o usuário está gastando no mês atual.
-- Filtros de Pesquisa: Capacidade de buscar transações antigas por data, categoria ou palavra-chave. 
+1.  Autenticação de Usuário: Login para manter a privacidade dos dados.
+2.  Painel de Dashboard: Visualização gráfica (Gráfico de Pizza) sumarizando o total de gastos do mês
+3.  Listagem Hierárquica: Exibição em cascata das categorias e suas respectivas subcategorias de gastos.
+4.  Registro de Transações: Formulário dinâmico para entrada de despesas, vinculadas a datas, valores numéricos e classificação.
 ---
 ### Protótipos de Integração(Wireframes)
+Print tirado da tela do Figma:
+![tela_dashboard](D:/Projetos/ClearMoney/clear_money/assets/tela_dashboard.png) ![Print do sistema](D:/Projetos/ClearMoney/clear_money/assets/tela_inserir_gastos.png)
 
 ---
 ### Estrutura de Banco de Dados
 
-Mesmo sem o backend definido, já deixamos o formato de comunicação (JSON) padronizado.
-Exemplo de Endpoint: Resumo de Transações do Mês.
-
-**Coleção Principal**: `usuarios`
-Cada usuário terá um documento cujo ID é o seu UID de autenticação gerado pelo Firebase Auth.
-
-- Caminho: `usuarios/{uid}`
-- Dados do Documento: 
-```
-{
-  "nome": "Ademar Neto",
-  "email": "ademar@email.com",
-  "dataCriacao": "2026-08-17T16:00:00Z"
-}
-```
-**Subcoleção**: `transacoes`
-Para facilitar as consultas e garantir que um usuário só veja os próprios dados, as transações ficarão dentro do documento do usuário.
-
-- Caminho: `usuarios/{uid}/transacoes/{transacaoId}`
-- Dados do Documento (Exemplo de Inserção/Leitura):
-```
-{
-  "categoriaId": "cat_alimentacao",
-  "tipo": "DESPESA",
-  "valor": 150.50,
-  "data": "2026-08-17",
-  "descricao": "Compra no supermercado",
-  "mesAno": "08-2026" 
-}
-```
+O armazenamento segue o padrão NoSQL orientado a documentos, estruturado para garantir a privacidade dos dados.
+*   Coleção Principal (`usuarios`):
+    *   Caminho: `usuarios/{uid}`
+    *   Dados: `nome`, `email`, `dataCriacao`.
+*   **Subcoleção (`transacoes`):**
+    *   Caminho: `usuarios/{uid}/transacoes/{transacaoId}`
+    *   Dados: `valor` (Double), `data` (Timestamp), `categoria` (String), `subcategoria` (String), `descricao` (String).
 ---
 ### Documentação de Fluxo e Regras de Segurança (Firestore Rules)
 Como não há um servidor backend intermediário, a validação de regras de negócio será feita através das Regras de Segurança do Firebase:  
@@ -111,3 +93,52 @@ O repositório do aplicativo será organizado para facilitar a manutenção e es
 - Por que Flutter e Dart? A escolha de um framework híbrido de alta performance elimina a necessidade de criar três projetos separados (um para web, um para Android e outro para iOS). Isso permite construir e distribuir a aplicação de forma rápida e otimizada.
 - Por que Firebase (Firestore)? A adoção de um banco NoSQL em tempo real justifica-se pela necessidade de refletir instantaneamente as transações financeiras nos dashboards do usuário. Além disso, essa stack reduz os custos com infraestrutura inicial, permitindo o desenvolvimento de tecnologias que realmente façam a diferença na sociedade, com foco total no impacto e acessibilidade, sem depender de arquiteturas comerciais complexas e custosas logo na primeira versão do sistema.
 ---
+### Modelagem e Casos de Uso
+
+**Modelagem de Dados NoSQL(Cloud Firestore)**
+
+Como a aplicação utiliza o Firebase, a modelagem de dados não segue o padrão relacional tradicional com chaves estrangeiras complexas, mas sim uma estrutura hierárquica baseada em Coleções e Documentos para otimizar as leituras em tempo real.
+
+Coleção `usuarios`:
+- Documento ID: UID gerado pelo Firebase Authentication.
+- Campos: `nome` (String), `email` (String), `data_criacao` (Timestamp).
+
+Subcoleção `transacoes` (Aninhada em `usuarios/{uid}`):
+- Documento ID: Auto-gerado pelo Firestore.
+- Campos:
+    - `valor` (Number / Double)
+    - `data` (Timestamp)
+    - `categoria` (String)
+    - `subcategoria` (String)
+    - `descricao` (String / Opcional)
+---
+### Casos de Uso Técnico
+- Caso de Uso: UC02 - Cadastro e Validação de Despesa
+    - Ator: Usuário Comum.
+    - Pré-condição: Usuário deve estar autenticado.
+    - Fluxo Principal:
+      1. O usuário acessa a aba "Inserir Gasto".
+      2. O frontend apresenta o formulário validado (`GlobalKey<FormState>`).
+      3. Ao selecionar uma Categoria macro, o sistema filtra dinamicamente o Dropdown de Subcategorias.
+      4. O usuário preenche o valor numérico e seleciona a data no calendário nativo.
+      5. O aplicativo submete os dados para a subcoleção do usuário no Firestore.
+      6. O listener do Firestore atualiza o painel principal automaticamente.
+---
+### Implementação do Backend (Firebase as a Service)
+Substituindo a necessidade de um servidor próprio em Java ou Node.js, o projeto delega as responsabilidades de backend para o ecossistema Firebase.
+
+**Regras de Negócio e Segurança(Firestore Rules)**
+As validações que tradicionalmente ocorreriam em uma camada Service ou em DTOs são garantidas diretamente pelas Regras de Segurança do banco na nuvem:
+- Isolamento de Dados: Um usuário só possui permissão de leitura (`read`) e escrita (`write`) nos documentos onde a rota coincide com o seu próprio UID de autenticação (`request.auth.uid == userId`).
+- Integridade de Tipos: Validação de que o campo valor inserido seja obrigatoriamente um número positivo, evitando que injeções de dados maliciosas quebrem os cálculos do dashboard.
+---
+### Implementação do Frontend
+A interface foi construída seguindo o padrão de separação por módulos (features), consumindo as capacidades do framework Flutter para garantir reatividade e alta performance na compilação multiplataforma.
+1. Estrutura de Interface(UI):
+  - Navegação: Implementada utilizando `DefaultTabController`  e `TabBarView`, permitindo uma transição fluida e sem recarregamentos entre o Dashboard e o Formulário.
+  - Gerenciamento de Estado Local: A tela de formulário utiliza `StatefulWidget`  para reconstruir apenas os componentes necessários (como o filtro de subcategorias) de forma independente.
+2. Componentes Visuais e Bibliotecas:
+  - fl_chart: Biblioteca adotada para a renderização do gráfico de pizza (`Pie Chart`). Os dados das transações são convertidos em PieChartSectionData, alocando tamanhos proporcionais baseados na soma dos gastos e sobrepondo os ícones representativos
+  - ExpansionTile: Utilizado na listagem de categorias macro para ocultar/revelar as subcategorias em formato de cascata. Essa abordagem limpa a poluição visual do dashboard e melhora a Experiência do Usuário (UX).
+3. Validação de Dados no Frontend:
+  - Assim como as boas práticas de consumo de API exigem validação prévia antes do envio, o aplicativo implementa validadores nos campos `TextFormField`  e `DropdownButtonFormField`. Mensagens de erro são disparadas se o usuário tentar registrar uma despesa com campos obrigatórios em branco, reduzindo o tráfego desnecessário de requisições malformadas para o banco de dados.
