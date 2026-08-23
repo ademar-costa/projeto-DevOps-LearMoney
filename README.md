@@ -29,6 +29,8 @@ Uma lista priorizada de funcionalidades para guiar o desenvolvimento incremental
 ---
 ### Protótipos de Integração(Wireframes)
 Print tirado da tela do Figma:
+
+
 ![tela_dashboard](./clear_money/assets/tela_dashboard.png) ![Print do sistema](./clear_money/assets/tela_inserir_gastos.png)
 
 ---
