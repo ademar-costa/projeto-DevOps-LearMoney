@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:currency_text_input_formatter/currency_text_input_formatter.dart'; // 1. Novo import
 
 class InserirGastoTab extends StatefulWidget {
   const InserirGastoTab({super.key});
@@ -8,19 +9,21 @@ class InserirGastoTab extends StatefulWidget {
 }
 
 class _InserirGastoTabState extends State<InserirGastoTab> {
-  // Chave do formulário para podermos validar os campos
   final _formKey = GlobalKey<FormState>();
-
-  // Controladores para pegar o texto digitado
   final _valorController = TextEditingController();
   final _descricaoController = TextEditingController();
   
-  // Variáveis para guardar as escolhas do usuário
   DateTime? _dataSelecionada = DateTime.now();
   String? _categoriaSelecionada;
   String? _subcategoriaSelecionada;
 
-  // Nosso "Banco de Dados" simulado baseado na minha planilha
+  // 2. Criando o formatador de moeda para o padrão brasileiro
+  final CurrencyTextInputFormatter _moedaFormatter = CurrencyTextInputFormatter.currency(
+    locale: 'pt_BR',
+    symbol: 'R\$',
+    decimalDigits: 2,
+  );
+
   final Map<String, List<String>> _categorias = {
     'Moradia': ['Aluguel/Prestação', 'Condomínio', 'Energia Elétrica', 'Água', 'Gás', 'Internet', 'Manutenção e Reparos'],
     'Alimentação': ['Supermercado', 'Padaria', 'Restaurantes/Lanches fora', 'Delivery'],
@@ -30,7 +33,6 @@ class _InserirGastoTabState extends State<InserirGastoTab> {
     'Outros': ['Presentes', 'Apoio a Projetos Sociais/Doações', 'Despesas Inesperadas'],
   };
 
-  // Função para abrir o calendário
   Future<void> _selecionarData(BuildContext context) async {
     final DateTime? escolhida = await showDatePicker(
       context: context,
@@ -41,10 +43,10 @@ class _InserirGastoTabState extends State<InserirGastoTab> {
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: const ColorScheme.dark(
-              primary: Color(0xFFFFD700), // Cor do cabeçalho do calendário
-              onPrimary: Colors.black,    // Cor do texto no cabeçalho
-              surface: Color(0xFF2C2C2C), // Cor de fundo do calendário
-              onSurface: Colors.white,    // Cor dos números
+              primary: Color(0xFFFFD700),
+              onPrimary: Colors.black,
+              surface: Color(0xFF2C2C2C),
+              onSurface: Colors.white,
             ),
           ),
           child: child!,
@@ -58,21 +60,20 @@ class _InserirGastoTabState extends State<InserirGastoTab> {
     }
   }
 
-  // Função chamada ao clicar em Salvar
   void _salvarGasto() {
     if (_formKey.currentState!.validate()) {
-      // Se todos os campos forem válidos, mostramos uma mensagem de sucesso
+      // Como a máscara deixa o texto assim: "R$ 1.500,50", 
+      // Para salvar no banco, depois precisaremos converter para número (ex: 1500.50).
+      // O _moedaFormatter.getUnformattedValue() nos entrega esse número puro!
+      final valorPuro = _moedaFormatter.getUnformattedValue();
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Gasto salvo com sucesso! (Simulação)'),
+        SnackBar(
+          content: Text('Gasto de R\$ $valorPuro salvo com sucesso! (Simulação)'),
           backgroundColor: Colors.green,
         ),
       );
       
-      // Aqui no futuro chamaremos o Firebase para salvar os dados
-      // Exemplo: firebaseService.salvarGasto(valor, data, categoria, ...);
-      
-      // Limpa os campos após salvar
       _valorController.clear();
       _descricaoController.clear();
       setState(() {
@@ -84,7 +85,6 @@ class _InserirGastoTabState extends State<InserirGastoTab> {
 
   @override
   void dispose() {
-    // É importante limpar os controladores quando a tela for fechada
     _valorController.dispose();
     _descricaoController.dispose();
     super.dispose();
@@ -97,16 +97,16 @@ class _InserirGastoTabState extends State<InserirGastoTab> {
       child: Form(
         key: _formKey,
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch, // Estica os botões até a borda
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Campo de VALOR
+            // Campo de VALOR ATUALIZADO
             TextFormField(
               controller: _valorController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: TextInputType.number, // Mantém apenas o teclado numérico
+              inputFormatters: [_moedaFormatter], // 3. Aplica a máscara aqui
               style: const TextStyle(fontSize: 32, color: Color(0xFFFFD700), fontWeight: FontWeight.bold),
               decoration: InputDecoration(
-                prefixText: 'R\$ ',
-                prefixStyle: const TextStyle(fontSize: 32, color: Colors.white54),
+                // Removemos o prefixText manual daqui
                 labelText: 'Valor',
                 labelStyle: const TextStyle(color: Colors.white54, fontSize: 16),
                 filled: true,
@@ -114,13 +114,16 @@ class _InserirGastoTabState extends State<InserirGastoTab> {
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
               ),
               validator: (value) {
-                if (value == null || value.isEmpty) return 'Informe o valor';
+                // Valida se o usuário não deixou zerado
+                if (value == null || value.isEmpty || _moedaFormatter.getUnformattedValue() <= 0) {
+                  return 'Informe um valor maior que zero';
+                }
                 return null;
               },
             ),
             const SizedBox(height: 20),
 
-            // Campo de DATA (Abre o calendário)
+            // Campo de DATA
             InkWell(
               onTap: () => _selecionarData(context),
               child: InputDecorator(
@@ -167,7 +170,6 @@ class _InserirGastoTabState extends State<InserirGastoTab> {
               onChanged: (String? novaCategoria) {
                 setState(() {
                   _categoriaSelecionada = novaCategoria;
-                  // Zera a subcategoria sempre que a categoria principal mudar
                   _subcategoriaSelecionada = null; 
                 });
               },
@@ -175,7 +177,7 @@ class _InserirGastoTabState extends State<InserirGastoTab> {
             ),
             const SizedBox(height: 20),
 
-            // Campo de SUBCATEGORIA (Dependente da Categoria)
+            // Campo de SUBCATEGORIA
             DropdownButtonFormField<String>(
               value: _subcategoriaSelecionada,
               dropdownColor: const Color(0xFF2C2C2C),
@@ -186,7 +188,6 @@ class _InserirGastoTabState extends State<InserirGastoTab> {
                 fillColor: const Color(0xFF2C2C2C),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
               ),
-              // Só mostra as opções se uma categoria tiver sido selecionada
               items: _categoriaSelecionada == null 
                   ? [] 
                   : _categorias[_categoriaSelecionada]!.map((String sub) {
@@ -204,7 +205,7 @@ class _InserirGastoTabState extends State<InserirGastoTab> {
             ),
             const SizedBox(height: 20),
 
-            // Campo de DESCRIÇÃO (Opcional)
+            // Campo de DESCRIÇÃO
             TextFormField(
               controller: _descricaoController,
               style: const TextStyle(color: Colors.white),
@@ -222,8 +223,8 @@ class _InserirGastoTabState extends State<InserirGastoTab> {
             ElevatedButton(
               onPressed: _salvarGasto,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFFD700), // Fundo amarelo
-                foregroundColor: Colors.black,            // Texto preto
+                backgroundColor: const Color(0xFFFFD700),
+                foregroundColor: Colors.black,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
