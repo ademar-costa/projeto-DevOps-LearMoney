@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:currency_text_input_formatter/currency_text_input_formatter.dart'; // 1. Novo import
+import 'package:currency_text_input_formatter/currency_text_input_formatter.dart'; 
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 
 class InserirGastoTab extends StatefulWidget {
   const InserirGastoTab({super.key});
@@ -60,26 +63,64 @@ class _InserirGastoTabState extends State<InserirGastoTab> {
     }
   }
 
-  void _salvarGasto() {
+  Future<void> _salvarGasto() async {
     if (_formKey.currentState!.validate()) {
-      // Como a máscara deixa o texto assim: "R$ 1.500,50", 
-      // Para salvar no banco, depois precisaremos converter para número (ex: 1500.50).
-      // O _moedaFormatter.getUnformattedValue() nos entrega esse número puro!
-      final valorPuro = _moedaFormatter.getUnformattedValue();
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Gasto de R\$ $valorPuro salvo com sucesso! (Simulação)'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      // 1. Pega o número puro (sem R$ e vírgulas)
+      final valorPuro = _moedaFormatter.getUnformattedValue().toDouble();
       
-      _valorController.clear();
-      _descricaoController.clear();
-      setState(() {
-        _categoriaSelecionada = null;
-        _subcategoriaSelecionada = null;
-      });
+      // 2. Descobre quem é o usuário logado agora
+      final usuario = FirebaseAuth.instance.currentUser;
+      
+      if (usuario == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Erro: Usuário não autenticado.'), backgroundColor: Colors.red),
+        );
+        return;
+      }
+
+      try {
+        // 3. Monta o caminho exato que autorizamos nas regras de segurança:
+        // /usuarios/{userId}/transacoes/{transacaoId}
+        await FirebaseFirestore.instance
+            .collection('usuarios')
+            .doc(usuario.uid)
+            .collection('transacoes')
+            .add({
+          'valor': valorPuro,
+          'data': Timestamp.fromDate(_dataSelecionada!), // Formato do Firebase
+          'categoria': _categoriaSelecionada,
+          'subcategoria': _subcategoriaSelecionada,
+          'descricao': _descricaoController.text.trim(),
+        });
+
+        // 4. Se chegou aqui, o Firebase aceitou gravar!
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Gasto salvo na nuvem com sucesso!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          
+          // Limpa o formulário para o próximo uso
+          _valorController.clear();
+          _descricaoController.clear();
+          setState(() {
+            _categoriaSelecionada = null;
+            _subcategoriaSelecionada = null;
+          });
+        }
+      } catch (e) {
+        // Se a Regra de Segurança barrar ou houver erro de internet
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Erro ao salvar no banco: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
     }
   }
 
