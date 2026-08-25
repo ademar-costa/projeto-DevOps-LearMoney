@@ -18,7 +18,7 @@ class DashboardTab extends StatelessWidget {
             const Expanded(
               flex: 1,
               child: Padding(
-                padding: EdgeInsets.only(left: 80.0), // <-- Adicionamos 24 pixels de recuo à esquerda
+                padding: EdgeInsets.only(left: 80.0), // <-- Adicionamos 80 pixels de recuo à esquerda
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [

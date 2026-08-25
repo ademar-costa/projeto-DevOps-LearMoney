@@ -1,8 +1,16 @@
 import 'package:flutter/material.dart';
-import 'screens/home_screen.dart'; // Importamos o arquivo que acabamos de criar
+import 'package:firebase_core/firebase_core.dart'; 
+import 'firebase_options_web.dart'; // Importa o arquivo das chaves
 import 'screens/login_screen.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // 2. Chama a variável que está no outro arquivo com a chaves
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.web, 
+  );
+
   runApp(const ClearMoneyApp());
 }
 
