@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'home_screen.dart'; // Importa a tela principal para navegarmos até ela
+import 'package:firebase_auth/firebase_auth.dart'; // Import do Firebase Auth
+import 'home_screen.dart'; 
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -13,17 +14,63 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   
-  // Variável que controla se a tela exibe o modo "Login" ou "Cadastro"
   bool _isLogin = true; 
+  bool _isLoading = false; // Controla o ícone de carregamento
 
-  void _submit() {
+  // Instância do Firebase Auth
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+
+  Future<void> _submit() async {
     if (_formKey.currentState!.validate()) {
-      // Como ainda não conectamos o Firebase ao app, vamos apenas 
-      // simular o sucesso e navegar para a tela de Dashboard/Home.
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const HomeScreen()),
-      );
+      setState(() {
+        _isLoading = true; // Mostra que está carregando
+      });
+
+      try {
+        if (_isLogin) {
+          // Tenta FAZER LOGIN
+          await _auth.signInWithEmailAndPassword(
+            email: _emailController.text.trim(),
+            password: _passwordController.text.trim(),
+          );
+        } else {
+          // Tenta CRIAR UMA CONTA
+          await _auth.createUserWithEmailAndPassword(
+            email: _emailController.text.trim(),
+            password: _passwordController.text.trim(),
+          );
+        }
+
+        // Se deu tudo certo, navega para a tela principal
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const HomeScreen()),
+          );
+        }
+      } on FirebaseAuthException catch (e) {
+        // Se o Firebase retornar um erro, mostramos na tela
+        String mensagemErro = 'Ocorreu um erro ao autenticar.';
+        if (e.code == 'user-not-found' || e.code == 'wrong-password' || e.code == 'invalid-credential') {
+          mensagemErro = 'E-mail ou senha incorretos.';
+        } else if (e.code == 'email-already-in-use') {
+          mensagemErro = 'Este e-mail já está cadastrado.';
+        } else if (e.code == 'weak-password') {
+          mensagemErro = 'A senha é muito fraca.';
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(mensagemErro), backgroundColor: Colors.red),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false; // Esconde o carregamento
+          });
+        }
+      }
     }
   }
 
@@ -37,7 +84,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1E1E1E), // Fundo principal escuro
+      backgroundColor: const Color(0xFF1E1E1E),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
@@ -47,8 +94,7 @@ class _LoginScreenState extends State<LoginScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Nossa logo dourada resgatada
-                Image.asset('assets/logo.png', height: 100),
+                Image.asset('assets/logo.png', height: 100, errorBuilder: (context, error, stackTrace) => const Icon(Icons.account_balance_wallet, size: 100, color: Color(0xFFFFD700))),
                 const SizedBox(height: 40),
                 
                 Text(
@@ -58,7 +104,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 30),
                 
-                // Campo de E-mail
                 TextFormField(
                   controller: _emailController,
                   style: const TextStyle(color: Colors.white),
@@ -75,10 +120,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 16),
                 
-                // Campo de Senha
                 TextFormField(
                   controller: _passwordController,
-                  obscureText: true, // Oculta a senha digitada
+                  obscureText: true,
                   style: const TextStyle(color: Colors.white),
                   decoration: InputDecoration(
                     labelText: 'Senha',
@@ -96,27 +140,31 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 32),
                 
-                // Botão de Ação
-                ElevatedButton(
-                  onPressed: _submit,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFFD700),
-                    foregroundColor: Colors.black,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  child: Text(
-                    _isLogin ? 'ENTRAR' : 'CADASTRAR',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                // Botão dinâmico (mostra carregando ou o texto)
+                SizedBox(
+                  height: 50,
+                  child: ElevatedButton(
+                    onPressed: _isLoading ? null : _submit,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFFFD700),
+                      disabledBackgroundColor: Colors.grey,
+                      foregroundColor: Colors.black,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: _isLoading 
+                        ? const CircularProgressIndicator(color: Colors.black)
+                        : Text(
+                            _isLogin ? 'ENTRAR' : 'CADASTRAR',
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
                   ),
                 ),
                 const SizedBox(height: 16),
                 
-                // Botão para alternar entre Login e Cadastro
                 TextButton(
                   onPressed: () {
                     setState(() {
-                      _isLogin = !_isLogin; // Inverte o estado da tela
+                      _isLogin = !_isLogin;
                     });
                   },
                   child: Text(

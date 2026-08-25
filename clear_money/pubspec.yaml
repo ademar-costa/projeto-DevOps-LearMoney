@@ -37,6 +37,7 @@ dependencies:
   fl_chart: ^1.2.0
   currency_text_input_formatter: ^2.3.2
   firebase_core: ^4.14.0
+  firebase_auth: ^6.6.0
 
 dev_dependencies:
   flutter_test:
