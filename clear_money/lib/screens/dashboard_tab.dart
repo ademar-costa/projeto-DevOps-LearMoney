@@ -1,230 +1,321 @@
 import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart'; 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:fl_chart/fl_chart.dart';
 
 class DashboardTab extends StatelessWidget {
   const DashboardTab({super.key});
 
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.all(16.0),
-      children: [
-        const SizedBox(height: 20),
-        
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            // Lado Esquerdo (Textos) com Padding adicionado
-            const Expanded(
-              flex: 1,
-              child: Padding(
-                padding: EdgeInsets.only(left: 80.0), // <-- Adicionamos 80 pixels de recuo à esquerda
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+  Color _getCorCategoria(String categoria) {
+    switch (categoria) {
+      case 'Moradia': return Colors.blue;
+      case 'Alimentação': return Colors.orange; 
+      case 'Transporte': return Colors.green;
+      case 'Educação e Desenvolvimento': return Colors.purpleAccent;
+      case 'Tecnologia e Softwares': return Colors.deepPurple;
+      default: return Colors.teal;
+    }
+  }
+
+  IconData _getIconeCategoria(String categoria) {
+    switch (categoria) {
+      case 'Moradia': return Icons.home;
+      case 'Alimentação': return Icons.restaurant;
+      case 'Transporte': return Icons.directions_car;
+      case 'Educação e Desenvolvimento': return Icons.school;
+      case 'Tecnologia e Softwares': return Icons.computer;
+      default: return Icons.category;
+    }
+  }
+
+  void _abrirGraficoAnual(BuildContext context, Map<int, Map<String, double>> gastosPorMes) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1E1E1E),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: SizedBox(
+            height: MediaQuery.of(context).size.height * 0.45,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'Total de\nGastos',
-                      style: TextStyle(
-                        color: Color(0xFFFFD700),
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    SizedBox(height: 12),
-                    Text(
-                      'R\$ 3.070,00', 
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w300,
-                      ),
-                    ),
+                    const Text('Histórico Anual', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFFFFD700))),
+                    IconButton(icon: const Icon(Icons.close, color: Color(0xFFFFD700)), onPressed: () => Navigator.pop(context)),
                   ],
                 ),
-              ),
+                const SizedBox(height: 20),
+                Expanded(
+                  child: BarChart(
+                    BarChartData(
+                      alignment: BarChartAlignment.spaceAround,
+                      barTouchData: BarTouchData(enabled: true),
+                      titlesData: FlTitlesData(
+                        show: true,
+                        bottomTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            getTitlesWidget: (value, meta) {
+                              const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+                              if (value.toInt() >= 1 && value.toInt() <= 12) {
+                                return Text(meses[value.toInt() - 1], style: const TextStyle(color: Color(0xFFFFD700), fontSize: 10));
+                              }
+                              return const Text('');
+                            },
+                          ),
+                        ),
+                        leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                        topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                        rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                      ),
+                      gridData: const FlGridData(show: false),
+                      borderData: FlBorderData(show: false),
+                      barGroups: _gerarDadosDoGraficoAnual(gastosPorMes),
+                    ),
+                  ),
+                ),
+              ],
             ),
-            
-            // Lado Direito (Gráfico de Pizza)
-            Expanded(
-              flex: 1,
-              child: SizedBox(
-                height: 160, 
+          ),
+        );
+      },
+    );
+  }
+
+  List<BarChartGroupData> _gerarDadosDoGraficoAnual(Map<int, Map<String, double>> gastosPorMes) {
+    List<BarChartGroupData> grupos = [];
+    for (int i = 1; i <= 12; i++) {
+      final mesData = gastosPorMes[i] ?? {};
+      double alturaBase = 0;
+      List<BarChartRodStackItem> pilhas = [];
+      
+      mesData.forEach((categoria, valor) {
+        if (valor > 0) {
+          pilhas.add(BarChartRodStackItem(alturaBase, alturaBase + valor, _getCorCategoria(categoria)));
+          alturaBase += valor;
+        }
+      });
+
+      grupos.add(
+        BarChartGroupData(
+          x: i,
+          barRods: [
+            BarChartRodData(
+              toY: alturaBase,
+              width: 16,
+              rodStackItems: pilhas,
+              borderRadius: BorderRadius.zero,
+            ),
+          ],
+        ),
+      );
+    }
+    return grupos;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final usuario = FirebaseAuth.instance.currentUser;
+
+    if (usuario == null) {
+      return const Center(child: Text('Usuário não autenticado', style: TextStyle(color: Color(0xFFFFD700))));
+    }
+
+    final agora = DateTime.now();
+    const listaMeses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+    final nomeMesAtual = listaMeses[agora.month - 1];
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('usuarios')
+          .doc(usuario.uid)
+          .collection('transacoes')
+          .orderBy('data', descending: true) 
+          .snapshots(),
+      builder: (context, snapshot) {
+        
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator(color: Color(0xFFFFD700)));
+        }
+
+        final transacoes = snapshot.data?.docs ?? [];
+
+        if (transacoes.isEmpty) {
+          return const Center(child: Text('Nenhum gasto registrado ainda.', style: TextStyle(color: Color(0xFFFFD700), fontSize: 18)));
+        }
+
+        double totalGasto = 0;
+        Map<String, double> totaisPorCategoria = {};
+        Map<String, List<Map<String, dynamic>>> listaPorCategoria = {};
+        Map<int, Map<String, double>> gastosPorMes = {}; 
+
+        for (var doc in transacoes) {
+          final dados = doc.data() as Map<String, dynamic>;
+          final categoria = dados['categoria'] as String? ?? 'Outros';
+          final valor = (dados['valor'] as num?)?.toDouble() ?? 0.0;
+          final dataOriginal = (dados['data'] as Timestamp).toDate();
+
+          totalGasto += valor;
+
+          totaisPorCategoria[categoria] = (totaisPorCategoria[categoria] ?? 0) + valor;
+          if (!listaPorCategoria.containsKey(categoria)) {
+            listaPorCategoria[categoria] = [];
+          }
+          listaPorCategoria[categoria]!.add(dados);
+
+          final mes = dataOriginal.month;
+          if (!gastosPorMes.containsKey(mes)) {
+            gastosPorMes[mes] = {};
+          }
+          gastosPorMes[mes]![categoria] = (gastosPorMes[mes]![categoria] ?? 0) + valor;
+        }
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      RichText(
+                        text: TextSpan(
+                          text: 'Total Gasto',
+                          style: const TextStyle(fontSize: 16, color: Color(0xFFFFD700), fontWeight: FontWeight.bold),
+                          children: [
+                            TextSpan(
+                              text: ' mês de $nomeMesAtual',
+                              style: const TextStyle(fontSize: 14, color: Colors.grey, fontWeight: FontWeight.normal),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Text('R\$ ${totalGasto.toStringAsFixed(2)}', style: const TextStyle(fontSize: 28, color: Colors.redAccent, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: () => _abrirGraficoAnual(context, gastosPorMes),
+                    icon: const Icon(Icons.bar_chart, color: Colors.black),
+                    label: const Text('Anual', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFFD700), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                  )
+                ],
+              ),
+              const SizedBox(height: 30),
+              
+              // Gráfico de Pizza com Ícones
+              SizedBox(
+                height: 220, 
                 child: PieChart(
                   PieChartData(
-                    sectionsSpace: 2, 
+                    sections: totaisPorCategoria.entries.map((entry) {
+                      return PieChartSectionData(
+                        color: _getCorCategoria(entry.key),
+                        value: entry.value,
+                        showTitle: false, // Desliga o texto original
+                        badgeWidget: Icon(
+                          _getIconeCategoria(entry.key), // Puxa o ícone correto
+                          color: Colors.black87, // Ícone quase preto para dar contraste nas cores claras
+                          size: 20, // Tamanho amigável para a fatia
+                        ),
+                        badgePositionPercentageOffset: 0.55, // Centraliza o ícone perfeitamente na fatia
+                        radius: 100, 
+                      );
+                    }).toList(),
                     centerSpaceRadius: 0, 
-                    sections: _buildPieChartSections(), 
+                    sectionsSpace: 2, 
                   ),
                 ),
               ),
-            ),
-          ],
-        ),
-        
-        const SizedBox(height: 40),
-        
-        // Categoria: Transporte
-        _buildCategoryCard(
-          icon: Icons.directions_car,
-          title: 'Transporte',
-          subtitle: 'Combustível, App de Transporte...',
-          amount: 'R\$ 450,00',
-          iconColor: const Color(0xFFEF9A9A),
-          subcategorias: [
-            {'nome': 'Combustível', 'data': '12/08/2026', 'valor': 'R\$ 300,00'},
-            {'nome': 'App de Transporte (Uber)', 'data': '15/08/2026', 'valor': 'R\$ 50,00'},
-            {'nome': 'Manutenção do Veículo', 'data': '18/08/2026', 'valor': 'R\$ 100,00'},
-          ],
-        ),
+              const SizedBox(height: 30),
 
-        // Categoria: Alimentação
-        _buildCategoryCard(
-          icon: Icons.restaurant,
-          title: 'Alimentação',
-          subtitle: 'Supermercado, Restaurantes...',
-          amount: 'R\$ 840,00',
-          iconColor: const Color(0xFFFFCC80),
-          subcategorias: [
-            {'nome': 'Supermercado', 'data': '05/08/2026', 'valor': 'R\$ 600,00'},
-            {'nome': 'Restaurantes/Lanches', 'data': '10/08/2026', 'valor': 'R\$ 180,00'},
-            {'nome': 'Padaria', 'data': '14/08/2026', 'valor': 'R\$ 60,00'},
-          ],
-        ),
+              const Text('Despesas por Categoria', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFFFFD700))), 
+              const SizedBox(height: 16),
 
-        // Categoria: Educação e Desenvolvimento
-        _buildCategoryCard(
-          icon: Icons.school,
-          title: 'Educação e Desenv.',
-          subtitle: 'Cursos de Tecnologia, IFB...',
-          amount: 'R\$ 250,00',
-          iconColor: const Color(0xFFCE93D8),
-          subcategorias: [
-            {'nome': 'Mensalidades/Taxas', 'data': '01/08/2026', 'valor': 'R\$ 100,00'},
-            {'nome': 'Cursos de Tecnologia', 'data': '08/08/2026', 'valor': 'R\$ 150,00'},
-          ],
-        ),
-      ],
-    );
-  }
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(), 
+                itemCount: totaisPorCategoria.length,
+                itemBuilder: (context, index) {
+                  final categoria = totaisPorCategoria.keys.elementAt(index);
+                  final totalDaCategoria = totaisPorCategoria[categoria]!;
+                  final transacoesDaCategoria = listaPorCategoria[categoria]!;
 
-  List<PieChartSectionData> _buildPieChartSections() {
-    const double radius = 80; 
-    
-    return [
-      PieChartSectionData(
-        color: const Color(0xFF90CAF9), 
-        value: 1250,
-        title: '', 
-        radius: radius,
-        badgeWidget: _buildBadge(Icons.home),
-        badgePositionPercentageOffset: 0.6, 
-      ),
-      PieChartSectionData(
-        color: const Color(0xFFFFCC80), 
-        value: 840,
-        title: '',
-        radius: radius,
-        badgeWidget: _buildBadge(Icons.restaurant),
-        badgePositionPercentageOffset: 0.6,
-      ),
-      PieChartSectionData(
-        color: const Color(0xFFEF9A9A), 
-        value: 450,
-        title: '',
-        radius: radius,
-        badgeWidget: _buildBadge(Icons.directions_car),
-        badgePositionPercentageOffset: 0.6,
-      ),
-      PieChartSectionData(
-        color: const Color(0xFFCE93D8), 
-        value: 250,
-        title: '',
-        radius: radius,
-        badgeWidget: _buildBadge(Icons.school),
-        badgePositionPercentageOffset: 0.6,
-      ),
-    ];
-  }
+                  return Card(
+                    color: const Color(0xFF2C2C2C),
+                    margin: const EdgeInsets.only(bottom: 12),
+                    clipBehavior: Clip.antiAlias, 
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    child: Theme(
+                      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                      child: ExpansionTile(
+                        iconColor: const Color(0xFFFFD700),
+                        collapsedIconColor: Colors.white54,
+                        leading: CircleAvatar(
+                          backgroundColor: _getCorCategoria(categoria).withOpacity(0.2),
+                          child: Icon(_getIconeCategoria(categoria), color: _getCorCategoria(categoria)),
+                        ),
+                        title: Text(categoria, style: const TextStyle(color: Color(0xFFFFD700), fontWeight: FontWeight.bold)), 
+                        trailing: Text('R\$ ${totalDaCategoria.toStringAsFixed(2)}', style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 16)), 
+                        
+                        children: transacoesDaCategoria.map((transacao) {
+                          final subcategoria = transacao['subcategoria'] ?? 'Outros';
+                          final valorGasto = (transacao['valor'] as num).toDouble();
+                          final dataCompra = (transacao['data'] as Timestamp).toDate();
+                          final dataFormatada = '${dataCompra.day.toString().padLeft(2, '0')}/${dataCompra.month.toString().padLeft(2, '0')}/${dataCompra.year}';
+                          
+                          final descricao = transacao['descricao'] as String?;
+                          final temDescricao = descricao != null && descricao.trim().isNotEmpty;
 
-  Widget _buildBadge(IconData icon) {
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: const BoxDecoration(
-        color: Colors.black54, 
-        shape: BoxShape.circle,
-      ),
-      child: Icon(icon, color: Colors.white, size: 16),
-    );
-  }
-
-  Widget _buildCategoryCard({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required String amount,
-    required Color iconColor,
-    required List<Map<String, String>> subcategorias,
-  }) {
-    return Card(
-      color: const Color(0xFF2C2C2C),
-      margin: const EdgeInsets.only(bottom: 12),
-      clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Theme(
-        data: ThemeData(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          iconColor: Colors.white,
-          collapsedIconColor: Colors.white54,
-          leading: Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: iconColor,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, color: Colors.black87),
-          ),
-          title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-          subtitle: Text(subtitle, style: const TextStyle(color: Colors.white54, fontSize: 12)),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                amount,
-                style: const TextStyle(color: Color(0xFFFFD700), fontWeight: FontWeight.bold, fontSize: 16),
+                          return ListTile(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+                            title: Text(subcategoria, style: const TextStyle(color: Colors.white70)),
+                            subtitle: Text(dataFormatada, style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (temDescricao)
+                                  IconButton(
+                                    icon: const Icon(Icons.chat_bubble_outline, color: Color(0xFFFFD700), size: 20),
+                                    onPressed: () {
+                                      showDialog(
+                                        context: context,
+                                        builder: (context) => AlertDialog(
+                                          backgroundColor: const Color(0xFF2C2C2C),
+                                          title: const Text('Observação', style: TextStyle(color: Color(0xFFFFD700))),
+                                          content: Text(descricao, style: const TextStyle(color: Colors.white)),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () => Navigator.pop(context),
+                                              child: const Text('Fechar', style: TextStyle(color: Color(0xFFFFD700))),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                Text('R\$ ${valorGasto.toStringAsFixed(2)}', style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)), 
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  );
+                },
               ),
-              const SizedBox(width: 8),
-              const Icon(Icons.keyboard_arrow_down, color: Colors.white54),
             ],
           ),
-          children: subcategorias.map((sub) {
-            return Container(
-              color: const Color(0xFF1E1E1E),
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(
-                      sub['nome']!,
-                      style: const TextStyle(color: Colors.white70, fontSize: 14),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  Text(
-                    sub['data']!,
-                    style: const TextStyle(color: Colors.white38, fontSize: 12),
-                  ),
-                  const SizedBox(width: 16),
-                  Text(
-                    sub['valor']!,
-                    style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 14),
-                  ),
-                ],
-              ),
-            );
-          }).toList(),
-        ),
-      ),
+        );
+      },
     );
   }
 }
