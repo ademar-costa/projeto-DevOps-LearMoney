@@ -28,6 +28,49 @@ class DashboardTab extends StatelessWidget {
     }
   }
 
+  // --- NOVA FUNÇÃO: Confirmar e Deletar ---
+  void _confirmarExclusao(BuildContext context, String docId, String subcategoria) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF2C2C2C),
+        title: const Text('Excluir Gasto', style: TextStyle(color: Colors.redAccent)),
+        content: Text('Tem certeza que deseja apagar "$subcategoria"?', style: const TextStyle(color: Colors.white)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar', style: TextStyle(color: Colors.white54)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+            onPressed: () async {
+              // Fecha o Pop-up
+              Navigator.pop(context);
+              
+              // Deleta no Firebase
+              final usuario = FirebaseAuth.instance.currentUser;
+              if (usuario != null) {
+                await FirebaseFirestore.instance
+                    .collection('usuarios')
+                    .doc(usuario.uid)
+                    .collection('transacoes')
+                    .doc(docId)
+                    .delete();
+                
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Gasto excluído com sucesso!'), backgroundColor: Colors.green),
+                  );
+                }
+              }
+            },
+            child: const Text('Excluir', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _abrirGraficoAnual(BuildContext context, Map<int, Map<String, double>> gastosPorMes) {
     showModalBottomSheet(
       context: context,
@@ -156,6 +199,9 @@ class DashboardTab extends StatelessWidget {
 
         for (var doc in transacoes) {
           final dados = doc.data() as Map<String, dynamic>;
+          // SALVANDO O ID DO DOCUMENTO PARA PODER DELETAR DEPOIS
+          dados['id'] = doc.id; 
+          
           final categoria = dados['categoria'] as String? ?? 'Outros';
           final valor = (dados['valor'] as num?)?.toDouble() ?? 0.0;
           final dataOriginal = (dados['data'] as Timestamp).toDate();
@@ -192,7 +238,7 @@ class DashboardTab extends StatelessWidget {
                           style: const TextStyle(fontSize: 16, color: Color(0xFFFFD700), fontWeight: FontWeight.bold),
                           children: [
                             TextSpan(
-                              text: ' mês de $nomeMesAtual',
+                              text: ', mês de $nomeMesAtual',
                               style: const TextStyle(fontSize: 14, color: Colors.grey, fontWeight: FontWeight.normal),
                             ),
                           ],
@@ -211,7 +257,6 @@ class DashboardTab extends StatelessWidget {
               ),
               const SizedBox(height: 30),
               
-              // Gráfico de Pizza com Ícones
               SizedBox(
                 height: 220, 
                 child: PieChart(
@@ -220,13 +265,13 @@ class DashboardTab extends StatelessWidget {
                       return PieChartSectionData(
                         color: _getCorCategoria(entry.key),
                         value: entry.value,
-                        showTitle: false, // Desliga o texto original
+                        showTitle: false, 
                         badgeWidget: Icon(
-                          _getIconeCategoria(entry.key), // Puxa o ícone correto
-                          color: Colors.black87, // Ícone quase preto para dar contraste nas cores claras
-                          size: 20, // Tamanho amigável para a fatia
+                          _getIconeCategoria(entry.key),
+                          color: Colors.black87, 
+                          size: 20, // tamanho o icone
                         ),
-                        badgePositionPercentageOffset: 0.55, // Centraliza o ícone perfeitamente na fatia
+                        badgePositionPercentageOffset: 0.55, 
                         radius: 100, 
                       );
                     }).toList(),
@@ -267,6 +312,9 @@ class DashboardTab extends StatelessWidget {
                         trailing: Text('R\$ ${totalDaCategoria.toStringAsFixed(2)}', style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 16)), 
                         
                         children: transacoesDaCategoria.map((transacao) {
+                          // RECUPERA O ID QUE SALVAMOS LÁ EM CIMA
+                          final docId = transacao['id'] as String; 
+                          
                           final subcategoria = transacao['subcategoria'] ?? 'Outros';
                           final valorGasto = (transacao['valor'] as num).toDouble();
                           final dataCompra = (transacao['data'] as Timestamp).toDate();
@@ -303,6 +351,12 @@ class DashboardTab extends StatelessWidget {
                                     },
                                   ),
                                 Text('R\$ ${valorGasto.toStringAsFixed(2)}', style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)), 
+                                
+                                // --- NOVO BOTÃO DE EXCLUIR ---
+                                IconButton(
+                                  icon: const Icon(Icons.delete_outline, color: Colors.white38, size: 20),
+                                  onPressed: () => _confirmarExclusao(context, docId, subcategoria),
+                                ),
                               ],
                             ),
                           );
