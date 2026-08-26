@@ -3,8 +3,29 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fl_chart/fl_chart.dart';
 
-class DashboardTab extends StatelessWidget {
+class DashboardTab extends StatefulWidget {
   const DashboardTab({super.key});
+
+  @override
+  State<DashboardTab> createState() => _DashboardTabState();
+}
+
+class _DashboardTabState extends State<DashboardTab> {
+  // Variável que guarda o mês/ano que o usuário está visualizando agora
+  DateTime _dataSelecionada = DateTime.now();
+
+  // Funções para navegar no tempo
+  void _mesAnterior() {
+    setState(() {
+      _dataSelecionada = DateTime(_dataSelecionada.year, _dataSelecionada.month - 1, 1);
+    });
+  }
+
+  void _proximoMes() {
+    setState(() {
+      _dataSelecionada = DateTime(_dataSelecionada.year, _dataSelecionada.month + 1, 1);
+    });
+  }
 
   Color _getCorCategoria(String categoria) {
     switch (categoria) {
@@ -28,7 +49,6 @@ class DashboardTab extends StatelessWidget {
     }
   }
 
-  // --- NOVA FUNÇÃO: Confirmar e Deletar ---
   void _confirmarExclusao(BuildContext context, String docId, String subcategoria) {
     showDialog(
       context: context,
@@ -44,10 +64,7 @@ class DashboardTab extends StatelessWidget {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
             onPressed: () async {
-              // Fecha o Pop-up
               Navigator.pop(context);
-              
-              // Deleta no Firebase
               final usuario = FirebaseAuth.instance.currentUser;
               if (usuario != null) {
                 await FirebaseFirestore.instance
@@ -88,7 +105,7 @@ class DashboardTab extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Histórico Anual', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFFFFD700))),
+                    Text('Histórico Anual (${_dataSelecionada.year})', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFFFFD700))),
                     IconButton(icon: const Icon(Icons.close, color: Color(0xFFFFD700)), onPressed: () => Navigator.pop(context)),
                   ],
                 ),
@@ -169,9 +186,8 @@ class DashboardTab extends StatelessWidget {
       return const Center(child: Text('Usuário não autenticado', style: TextStyle(color: Color(0xFFFFD700))));
     }
 
-    final agora = DateTime.now();
-    const listaMeses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-    final nomeMesAtual = listaMeses[agora.month - 1];
+    const listaMeses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    final nomeMesAtual = '${listaMeses[_dataSelecionada.month - 1]} ${_dataSelecionada.year}';
 
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
@@ -188,10 +204,6 @@ class DashboardTab extends StatelessWidget {
 
         final transacoes = snapshot.data?.docs ?? [];
 
-        if (transacoes.isEmpty) {
-          return const Center(child: Text('Nenhum gasto registrado ainda.', style: TextStyle(color: Color(0xFFFFD700), fontSize: 18)));
-        }
-
         double totalGasto = 0;
         Map<String, double> totaisPorCategoria = {};
         Map<String, List<Map<String, dynamic>>> listaPorCategoria = {};
@@ -199,26 +211,31 @@ class DashboardTab extends StatelessWidget {
 
         for (var doc in transacoes) {
           final dados = doc.data() as Map<String, dynamic>;
-          // SALVANDO O ID DO DOCUMENTO PARA PODER DELETAR DEPOIS
           dados['id'] = doc.id; 
           
           final categoria = dados['categoria'] as String? ?? 'Outros';
           final valor = (dados['valor'] as num?)?.toDouble() ?? 0.0;
           final dataOriginal = (dados['data'] as Timestamp).toDate();
 
-          totalGasto += valor;
-
-          totaisPorCategoria[categoria] = (totaisPorCategoria[categoria] ?? 0) + valor;
-          if (!listaPorCategoria.containsKey(categoria)) {
-            listaPorCategoria[categoria] = [];
+          // 1. Agrupa para o gráfico Anual (pega tudo do ano selecionado)
+          if (dataOriginal.year == _dataSelecionada.year) {
+            final mes = dataOriginal.month;
+            if (!gastosPorMes.containsKey(mes)) {
+              gastosPorMes[mes] = {};
+            }
+            gastosPorMes[mes]![categoria] = (gastosPorMes[mes]![categoria] ?? 0) + valor;
           }
-          listaPorCategoria[categoria]!.add(dados);
 
-          final mes = dataOriginal.month;
-          if (!gastosPorMes.containsKey(mes)) {
-            gastosPorMes[mes] = {};
+          // 2. Filtra a Pizza e a Lista apenas para o mês e ano selecionados
+          if (dataOriginal.year == _dataSelecionada.year && dataOriginal.month == _dataSelecionada.month) {
+            totalGasto += valor;
+
+            totaisPorCategoria[categoria] = (totaisPorCategoria[categoria] ?? 0) + valor;
+            if (!listaPorCategoria.containsKey(categoria)) {
+              listaPorCategoria[categoria] = [];
+            }
+            listaPorCategoria[categoria]!.add(dados);
           }
-          gastosPorMes[mes]![categoria] = (gastosPorMes[mes]![categoria] ?? 0) + valor;
         }
 
         return SingleChildScrollView(
@@ -232,18 +249,27 @@ class DashboardTab extends StatelessWidget {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      RichText(
-                        text: TextSpan(
-                          text: 'Total Gasto',
-                          style: const TextStyle(fontSize: 16, color: Color(0xFFFFD700), fontWeight: FontWeight.bold),
-                          children: [
-                            TextSpan(
-                              text: ', mês de $nomeMesAtual',
-                              style: const TextStyle(fontSize: 14, color: Colors.grey, fontWeight: FontWeight.normal),
-                            ),
-                          ],
-                        ),
+                      // Seletor de Meses interativo
+                      Row(
+                        children: [
+                          const Text('Total Gasto', style: TextStyle(fontSize: 16, color: Color(0xFFFFD700), fontWeight: FontWeight.bold)),
+                          const SizedBox(width: 8),
+                          IconButton(
+                            icon: const Icon(Icons.chevron_left, color: Colors.grey, size: 24),
+                            onPressed: _mesAnterior,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
+                          Text(nomeMesAtual, style: const TextStyle(fontSize: 14, color: Colors.grey)),
+                          IconButton(
+                            icon: const Icon(Icons.chevron_right, color: Colors.grey, size: 24),
+                            onPressed: _proximoMes,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
+                        ],
                       ),
+                      const SizedBox(height: 4),
                       Text('R\$ ${totalGasto.toStringAsFixed(2)}', style: const TextStyle(fontSize: 28, color: Colors.redAccent, fontWeight: FontWeight.bold)),
                     ],
                   ),
@@ -255,117 +281,130 @@ class DashboardTab extends StatelessWidget {
                   )
                 ],
               ),
-              const SizedBox(height: 30),
+              const SizedBox(height: 5),
               
-              SizedBox(
-                height: 220, 
-                child: PieChart(
-                  PieChartData(
-                    sections: totaisPorCategoria.entries.map((entry) {
-                      return PieChartSectionData(
-                        color: _getCorCategoria(entry.key),
-                        value: entry.value,
-                        showTitle: false, 
-                        badgeWidget: Icon(
-                          _getIconeCategoria(entry.key),
-                          color: Colors.black87, 
-                          size: 20, // tamanho o icone
-                        ),
-                        badgePositionPercentageOffset: 0.55, 
-                        radius: 100, 
-                      );
-                    }).toList(),
-                    centerSpaceRadius: 0, 
-                    sectionsSpace: 2, 
+              // Se não houver gastos no mês, exibe uma mensagem
+              if (totaisPorCategoria.isEmpty)
+                const SizedBox(
+                  height: 220,
+                  child: Center(
+                    child: Text('Nenhum gasto neste mês.', style: TextStyle(color: Colors.white54, fontSize: 16)),
+                  ),
+                )
+              else
+                SizedBox(
+                  height: 220, 
+                  child: PieChart(
+                    PieChartData(
+                      sections: totaisPorCategoria.entries.map((entry) {
+                        return PieChartSectionData(
+                          color: _getCorCategoria(entry.key),
+                          value: entry.value,
+                          showTitle: false, 
+                          badgeWidget: Icon(
+                            _getIconeCategoria(entry.key),
+                            color: Colors.black87, 
+                            size: 20, 
+                          ),
+                          badgePositionPercentageOffset: 0.55, 
+                          radius: 100, 
+                        );
+                      }).toList(),
+                      centerSpaceRadius: 0, 
+                      sectionsSpace: 2, 
+                    ),
                   ),
                 ),
-              ),
               const SizedBox(height: 30),
 
               const Text('Despesas por Categoria', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFFFFD700))), 
               const SizedBox(height: 16),
 
-              ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(), 
-                itemCount: totaisPorCategoria.length,
-                itemBuilder: (context, index) {
-                  final categoria = totaisPorCategoria.keys.elementAt(index);
-                  final totalDaCategoria = totaisPorCategoria[categoria]!;
-                  final transacoesDaCategoria = listaPorCategoria[categoria]!;
+              if (totaisPorCategoria.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.only(top: 16.0),
+                  child: Text('A lista está vazia para o período selecionado.', style: TextStyle(color: Colors.white54)),
+                )
+              else
+                ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(), 
+                  itemCount: totaisPorCategoria.length,
+                  itemBuilder: (context, index) {
+                    final categoria = totaisPorCategoria.keys.elementAt(index);
+                    final totalDaCategoria = totaisPorCategoria[categoria]!;
+                    final transacoesDaCategoria = listaPorCategoria[categoria]!;
 
-                  return Card(
-                    color: const Color(0xFF2C2C2C),
-                    margin: const EdgeInsets.only(bottom: 12),
-                    clipBehavior: Clip.antiAlias, 
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    child: Theme(
-                      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-                      child: ExpansionTile(
-                        iconColor: const Color(0xFFFFD700),
-                        collapsedIconColor: Colors.white54,
-                        leading: CircleAvatar(
-                          backgroundColor: _getCorCategoria(categoria).withOpacity(0.2),
-                          child: Icon(_getIconeCategoria(categoria), color: _getCorCategoria(categoria)),
-                        ),
-                        title: Text(categoria, style: const TextStyle(color: Color(0xFFFFD700), fontWeight: FontWeight.bold)), 
-                        trailing: Text('R\$ ${totalDaCategoria.toStringAsFixed(2)}', style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 16)), 
-                        
-                        children: transacoesDaCategoria.map((transacao) {
-                          // RECUPERA O ID QUE SALVAMOS LÁ EM CIMA
-                          final docId = transacao['id'] as String; 
+                    return Card(
+                      color: const Color(0xFF2C2C2C),
+                      margin: const EdgeInsets.only(bottom: 12),
+                      clipBehavior: Clip.antiAlias, 
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      child: Theme(
+                        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                        child: ExpansionTile(
+                          iconColor: const Color(0xFFFFD700),
+                          collapsedIconColor: Colors.white54,
+                          leading: CircleAvatar(
+                            backgroundColor: _getCorCategoria(categoria).withOpacity(0.2),
+                            child: Icon(_getIconeCategoria(categoria), color: _getCorCategoria(categoria)),
+                          ),
+                          title: Text(categoria, style: const TextStyle(color: Color(0xFFFFD700), fontWeight: FontWeight.bold)), 
+                          trailing: Text('R\$ ${totalDaCategoria.toStringAsFixed(2)}', style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 16)), 
                           
-                          final subcategoria = transacao['subcategoria'] ?? 'Outros';
-                          final valorGasto = (transacao['valor'] as num).toDouble();
-                          final dataCompra = (transacao['data'] as Timestamp).toDate();
-                          final dataFormatada = '${dataCompra.day.toString().padLeft(2, '0')}/${dataCompra.month.toString().padLeft(2, '0')}/${dataCompra.year}';
-                          
-                          final descricao = transacao['descricao'] as String?;
-                          final temDescricao = descricao != null && descricao.trim().isNotEmpty;
+                          children: transacoesDaCategoria.map((transacao) {
+                            final docId = transacao['id'] as String; 
+                            
+                            final subcategoria = transacao['subcategoria'] ?? 'Outros';
+                            final valorGasto = (transacao['valor'] as num).toDouble();
+                            final dataCompra = (transacao['data'] as Timestamp).toDate();
+                            final dataFormatada = '${dataCompra.day.toString().padLeft(2, '0')}/${dataCompra.month.toString().padLeft(2, '0')}/${dataCompra.year}';
+                            
+                            final descricao = transacao['descricao'] as String?;
+                            final temDescricao = descricao != null && descricao.trim().isNotEmpty;
 
-                          return ListTile(
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
-                            title: Text(subcategoria, style: const TextStyle(color: Colors.white70)),
-                            subtitle: Text(dataFormatada, style: const TextStyle(color: Colors.white54, fontSize: 12)),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (temDescricao)
+                            return ListTile(
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+                              title: Text(subcategoria, style: const TextStyle(color: Colors.white70)),
+                              subtitle: Text(dataFormatada, style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (temDescricao)
+                                    IconButton(
+                                      icon: const Icon(Icons.chat_bubble_outline, color: Color(0xFFFFD700), size: 20),
+                                      onPressed: () {
+                                        showDialog(
+                                          context: context,
+                                          builder: (context) => AlertDialog(
+                                            backgroundColor: const Color(0xFF2C2C2C),
+                                            title: const Text('Observação', style: TextStyle(color: Color(0xFFFFD700))),
+                                            content: Text(descricao, style: const TextStyle(color: Colors.white)),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () => Navigator.pop(context),
+                                                child: const Text('Fechar', style: TextStyle(color: Color(0xFFFFD700))),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  Text('R\$ ${valorGasto.toStringAsFixed(2)}', style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)), 
+                                  
                                   IconButton(
-                                    icon: const Icon(Icons.chat_bubble_outline, color: Color(0xFFFFD700), size: 20),
-                                    onPressed: () {
-                                      showDialog(
-                                        context: context,
-                                        builder: (context) => AlertDialog(
-                                          backgroundColor: const Color(0xFF2C2C2C),
-                                          title: const Text('Observação', style: TextStyle(color: Color(0xFFFFD700))),
-                                          content: Text(descricao, style: const TextStyle(color: Colors.white)),
-                                          actions: [
-                                            TextButton(
-                                              onPressed: () => Navigator.pop(context),
-                                              child: const Text('Fechar', style: TextStyle(color: Color(0xFFFFD700))),
-                                            ),
-                                          ],
-                                        ),
-                                      );
-                                    },
+                                    icon: const Icon(Icons.delete_outline, color: Colors.white38, size: 20),
+                                    onPressed: () => _confirmarExclusao(context, docId, subcategoria),
                                   ),
-                                Text('R\$ ${valorGasto.toStringAsFixed(2)}', style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)), 
-                                
-                                // --- NOVO BOTÃO DE EXCLUIR ---
-                                IconButton(
-                                  icon: const Icon(Icons.delete_outline, color: Colors.white38, size: 20),
-                                  onPressed: () => _confirmarExclusao(context, docId, subcategoria),
-                                ),
-                              ],
-                            ),
-                          );
-                        }).toList(),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                        ),
                       ),
-                    ),
-                  );
-                },
-              ),
+                    );
+                  },
+                ),
             ],
           ),
         );
