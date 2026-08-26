@@ -11,10 +11,8 @@ class DashboardTab extends StatefulWidget {
 }
 
 class _DashboardTabState extends State<DashboardTab> {
-  // Variável que guarda o mês/ano que o usuário está visualizando agora
   DateTime _dataSelecionada = DateTime.now();
 
-  // Funções para navegar no tempo
   void _mesAnterior() {
     setState(() {
       _dataSelecionada = DateTime(_dataSelecionada.year, _dataSelecionada.month - 1, 1);
@@ -27,25 +25,39 @@ class _DashboardTabState extends State<DashboardTab> {
     });
   }
 
+  // --- MAPA DE CORES ATUALIZADO ---
   Color _getCorCategoria(String categoria) {
     switch (categoria) {
       case 'Moradia': return Colors.blue;
       case 'Alimentação': return Colors.orange; 
       case 'Transporte': return Colors.green;
       case 'Educação e Desenvolvimento': return Colors.purpleAccent;
+      case 'Saúde e Cuidados Pessoais': return Colors.pinkAccent;
       case 'Tecnologia e Softwares': return Colors.deepPurple;
-      default: return Colors.teal;
+      case 'Lazer e Entretenimento': return Colors.cyan;
+      case 'Vestuário': return Colors.indigoAccent;
+      case 'Impostos e Taxas': return Colors.redAccent;
+      case 'Poupança e Investimentos': return Colors.amber;
+      case 'Outros': return Colors.teal;
+      default: return Colors.grey;
     }
   }
 
+  // --- MAPA DE ÍCONES ATUALIZADO ---
   IconData _getIconeCategoria(String categoria) {
     switch (categoria) {
       case 'Moradia': return Icons.home;
       case 'Alimentação': return Icons.restaurant;
       case 'Transporte': return Icons.directions_car;
       case 'Educação e Desenvolvimento': return Icons.school;
+      case 'Saúde e Cuidados Pessoais': return Icons.health_and_safety;
       case 'Tecnologia e Softwares': return Icons.computer;
-      default: return Icons.category;
+      case 'Lazer e Entretenimento': return Icons.movie; // ou sports_esports
+      case 'Vestuário': return Icons.checkroom;
+      case 'Impostos e Taxas': return Icons.account_balance;
+      case 'Poupança e Investimentos': return Icons.savings;
+      case 'Outros': return Icons.category;
+      default: return Icons.label;
     }
   }
 
@@ -105,7 +117,10 @@ class _DashboardTabState extends State<DashboardTab> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Histórico Anual (${_dataSelecionada.year})', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFFFFD700))),
+                    Text(
+                      'Histórico Anual (${_dataSelecionada.year})', 
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFFFFD700), letterSpacing: 0),
+                    ),
                     IconButton(icon: const Icon(Icons.close, color: Color(0xFFFFD700)), onPressed: () => Navigator.pop(context)),
                   ],
                 ),
@@ -123,7 +138,7 @@ class _DashboardTabState extends State<DashboardTab> {
                             getTitlesWidget: (value, meta) {
                               const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
                               if (value.toInt() >= 1 && value.toInt() <= 12) {
-                                return Text(meses[value.toInt() - 1], style: const TextStyle(color: Color(0xFFFFD700), fontSize: 10));
+                                return Text(meses[value.toInt() - 1], style: const TextStyle(color: Color(0xFFFFD700), fontSize: 10, letterSpacing: 0));
                               }
                               return const Text('');
                             },
@@ -217,7 +232,6 @@ class _DashboardTabState extends State<DashboardTab> {
           final valor = (dados['valor'] as num?)?.toDouble() ?? 0.0;
           final dataOriginal = (dados['data'] as Timestamp).toDate();
 
-          // 1. Agrupa para o gráfico Anual (pega tudo do ano selecionado)
           if (dataOriginal.year == _dataSelecionada.year) {
             final mes = dataOriginal.month;
             if (!gastosPorMes.containsKey(mes)) {
@@ -226,7 +240,6 @@ class _DashboardTabState extends State<DashboardTab> {
             gastosPorMes[mes]![categoria] = (gastosPorMes[mes]![categoria] ?? 0) + valor;
           }
 
-          // 2. Filtra a Pizza e a Lista apenas para o mês e ano selecionados
           if (dataOriginal.year == _dataSelecionada.year && dataOriginal.month == _dataSelecionada.month) {
             totalGasto += valor;
 
@@ -249,7 +262,6 @@ class _DashboardTabState extends State<DashboardTab> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Seletor de Meses interativo
                       Row(
                         children: [
                           const Text('Total Gasto', style: TextStyle(fontSize: 16, color: Color(0xFFFFD700), fontWeight: FontWeight.bold)),
@@ -260,7 +272,7 @@ class _DashboardTabState extends State<DashboardTab> {
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
                           ),
-                          Text(nomeMesAtual, style: const TextStyle(fontSize: 14, color: Colors.grey)),
+                          Text(nomeMesAtual, style: const TextStyle(fontSize: 14, color: Colors.grey, letterSpacing: 0)),
                           IconButton(
                             icon: const Icon(Icons.chevron_right, color: Colors.grey, size: 24),
                             onPressed: _proximoMes,
@@ -270,7 +282,7 @@ class _DashboardTabState extends State<DashboardTab> {
                         ],
                       ),
                       const SizedBox(height: 4),
-                      Text('R\$ ${totalGasto.toStringAsFixed(2)}', style: const TextStyle(fontSize: 28, color: Colors.redAccent, fontWeight: FontWeight.bold)),
+                      Text('R\$ ${totalGasto.toStringAsFixed(2)}', style: const TextStyle(fontSize: 28, color: Colors.redAccent, fontWeight: FontWeight.bold, letterSpacing: 0)),
                     ],
                   ),
                   ElevatedButton.icon(
@@ -283,7 +295,6 @@ class _DashboardTabState extends State<DashboardTab> {
               ),
               const SizedBox(height: 5),
               
-              // Se não houver gastos no mês, exibe uma mensagem
               if (totaisPorCategoria.isEmpty)
                 const SizedBox(
                   height: 220,
@@ -350,7 +361,7 @@ class _DashboardTabState extends State<DashboardTab> {
                             child: Icon(_getIconeCategoria(categoria), color: _getCorCategoria(categoria)),
                           ),
                           title: Text(categoria, style: const TextStyle(color: Color(0xFFFFD700), fontWeight: FontWeight.bold)), 
-                          trailing: Text('R\$ ${totalDaCategoria.toStringAsFixed(2)}', style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 16)), 
+                          trailing: Text('R\$ ${totalDaCategoria.toStringAsFixed(2)}', style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 0)), 
                           
                           children: transacoesDaCategoria.map((transacao) {
                             final docId = transacao['id'] as String; 
@@ -366,7 +377,7 @@ class _DashboardTabState extends State<DashboardTab> {
                             return ListTile(
                               contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
                               title: Text(subcategoria, style: const TextStyle(color: Colors.white70)),
-                              subtitle: Text(dataFormatada, style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                              subtitle: Text(dataFormatada, style: const TextStyle(color: Colors.white54, fontSize: 12, letterSpacing: 0)),
                               trailing: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
@@ -390,7 +401,7 @@ class _DashboardTabState extends State<DashboardTab> {
                                         );
                                       },
                                     ),
-                                  Text('R\$ ${valorGasto.toStringAsFixed(2)}', style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)), 
+                                  Text('R\$ ${valorGasto.toStringAsFixed(2)}', style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, letterSpacing: 0)), 
                                   
                                   IconButton(
                                     icon: const Icon(Icons.delete_outline, color: Colors.white38, size: 20),
