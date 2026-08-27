@@ -50,23 +50,6 @@ Como não há um servidor backend intermediário, a validação de regras de neg
 - Validação de Dados: As regras garantirão que o campo `valor`  seja um número positivo e que o campo `tipo` aceite apenas "DESPESA".
 - Comunicação: O Frontend em Flutter utilizará os pacotes oficiais `firebase_core`, `firebase_auth`  e `cloud_firestore` para realizar o CRUD diretamente no banco.
 ---
-### Modelagem e Casos de Uso
-**Modelagem de Requisitos Detalhada:**  
-- RF01 - Registrar Transação: O sistema deve persistir a despesa ou receita como um documento no Firestore, vinculado ao UID do usuário autenticado.
-- RNF01 - Persistência em Tempo Real: A aplicação deve utilizar a capacidade real-time do Firestore para que, ao adicionar uma despesa, o dashboard seja recalculado e atualizado na interface sem necessidade de recarregar a tela.
-
-**Casos de Uso Técnicos**  
-Caso de Uso: UC01 - Registrar Gasto Mensal
-- Ator: Usuário Comum.  
-- Pré-condição: Usuário autenticado via Firebase Auth.  
-- Fluxo Principal:  
-   1. O usuário preenche os dados da transação no Flutter.
-   2. O frontend valida os campos obrigatórios localmente.
-   3. O aplicativo chama o método `.add()`  da coleção `transacoes`  no Firestore.
-   4. As Firestore Rules validam a operação na nuvem.
-   5. O documento é criado com sucesso.
-   6. O StreamBuilder do Flutter detecta a mudança e atualiza o gráfico no dashboard automaticamente.
----
 ### Arquitetura
 O sistema seguirá uma arquitetura **baseada em BaaS (Backend as a Service)**, utilizando serviços gerenciados em nuvem para descentralizar a lógica do servidor tradicional.
 
@@ -113,6 +96,10 @@ Subcoleção `transacoes` (Aninhada em `usuarios/{uid}`):
     - `categoria` (String)
     - `subcategoria` (String)
     - `descricao` (String / Opcional)
+
+**Modelagem de Requisitos Detalhada:**  
+- RF01 - Registrar Transação: O sistema deve persistir a despesa ou receita como um documento no Firestore, vinculado ao UID do usuário autenticado.
+- RNF01 - Persistência em Tempo Real: A aplicação deve utilizar a capacidade real-time do Firestore para que, ao adicionar uma despesa, o dashboard seja recalculado e atualizado na interface sem necessidade de recarregar a tela.
 ---
 ### Casos de Uso Técnico
 - Caso de Uso: UC02 - Cadastro e Validação de Despesa
