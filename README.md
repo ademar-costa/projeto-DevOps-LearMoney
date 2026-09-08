@@ -131,3 +131,20 @@ A interface foi construída seguindo o padrão de separação por módulos (feat
   - ExpansionTile: Utilizado na listagem de categorias macro para ocultar/revelar as subcategorias em formato de cascata. Essa abordagem limpa a poluição visual do dashboard e melhora a Experiência do Usuário (UX).
 3. Validação de Dados no Frontend:
   - Assim como as boas práticas de consumo de API exigem validação prévia antes do envio, o aplicativo implementa validadores nos campos `TextFormField`  e `DropdownButtonFormField`. Mensagens de erro são disparadas se o usuário tentar registrar uma despesa com campos obrigatórios em branco, reduzindo o tráfego desnecessário de requisições malformadas para o banco de dados.
+
+
+  ## 🚀 Etapa 5: Qualidade, Automação e Entrega
+
+### 1. Conteinerização (Docker)
+- **Servidor Web:** Nginx (servindo a build estática do Flutter Web).
+- **Orquestração:** Docker Compose gerenciando a inicialização e portas da aplicação.
+- **Como executar:**
+
+- **Acesso:** `http://localhost:80`
+
+### 2. Testes Automatizados
+- **Framework:** `flutter_test`
+- **Arquivo de Teste:** `clear_money/test/widget_test.dart`
+- **Comando de Execução:**
+
+- **Status:** Suíte de integridade validada e aprovada (`All tests passed!`).

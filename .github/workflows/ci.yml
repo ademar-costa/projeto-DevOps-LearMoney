@@ -1,0 +1,25 @@
+name: Pipeline CI - Flutter
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Baixar o código
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Configurar Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: 📦 Instalar dependências
+        run: flutter pub get
+        working-directory: ./clear_money
+
+      - name: 🧪 Rodar testes automatizados
+        run: flutter test
+        working-directory: ./clear_money
