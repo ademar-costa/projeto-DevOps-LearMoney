@@ -1,4 +1,4 @@
-FROM ghcr.io/cirruslabs/flutter:3.19.0 AS build
+FROM ghcr.io/cirruslabs/flutter:stable AS build
 
 # 1. Cria o usuário e dá permissão total na pasta de instalação do Flutter
 RUN useradd -m flutteruser && \

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:clearmoney/screens/login_screen.dart';
+import 'package:clear_money/screens/login_screen.dart';
 
 void main() {
   runApp(const ClearMoneyApp());
