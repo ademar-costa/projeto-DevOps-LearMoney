@@ -49,3 +49,5 @@ app.*.map.json
 
 # Ocultando chaves de acesso do Firebase
 lib/firebase_options_web.dart
+# Ignorar chaves do Firebase
+clear_money/lib/firebase_options.dart
