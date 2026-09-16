@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:fl_chart/fl_chart.dart';
+import 'package:fl_chart/fl_chart.dart'; // Mantido para o Gráfico Anual
 
 class DashboardTab extends StatefulWidget {
   const DashboardTab({super.key});
@@ -25,7 +25,6 @@ class _DashboardTabState extends State<DashboardTab> {
     });
   }
 
-  // --- MAPA DE CORES ATUALIZADO ---
   Color _getCorCategoria(String categoria) {
     switch (categoria) {
       case 'Moradia': return Colors.blue;
@@ -43,7 +42,6 @@ class _DashboardTabState extends State<DashboardTab> {
     }
   }
 
-  // --- MAPA DE ÍCONES ATUALIZADO ---
   IconData _getIconeCategoria(String categoria) {
     switch (categoria) {
       case 'Moradia': return Icons.home;
@@ -52,7 +50,7 @@ class _DashboardTabState extends State<DashboardTab> {
       case 'Educação e Desenvolvimento': return Icons.school;
       case 'Saúde e Cuidados Pessoais': return Icons.health_and_safety;
       case 'Tecnologia e Softwares': return Icons.computer;
-      case 'Lazer e Entretenimento': return Icons.movie; // ou sports_esports
+      case 'Lazer e Entretenimento': return Icons.movie;
       case 'Vestuário': return Icons.checkroom;
       case 'Impostos e Taxas': return Icons.account_balance;
       case 'Poupança e Investimentos': return Icons.savings;
@@ -251,6 +249,16 @@ class _DashboardTabState extends State<DashboardTab> {
           }
         }
 
+        // Ordena do maior gasto para o menor
+        final categoriasOrdenadas = totaisPorCategoria.keys.toList()
+          ..sort((a, b) => totaisPorCategoria[b]!.compareTo(totaisPorCategoria[a]!));
+
+        // Descobre qual foi o maior valor gasto para calcular o tamanho máximo da barra
+        double maxValorGasto = 0;
+        if (totaisPorCategoria.isNotEmpty) {
+          maxValorGasto = totaisPorCategoria.values.reduce((a, b) => a > b ? a : b);
+        }
+
         return SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
           child: Column(
@@ -293,7 +301,7 @@ class _DashboardTabState extends State<DashboardTab> {
                   )
                 ],
               ),
-              const SizedBox(height: 5),
+              const SizedBox(height: 30),
               
               if (totaisPorCategoria.isEmpty)
                 const SizedBox(
@@ -303,27 +311,92 @@ class _DashboardTabState extends State<DashboardTab> {
                   ),
                 )
               else
-                SizedBox(
-                  height: 220, 
-                  child: PieChart(
-                    PieChartData(
-                      sections: totaisPorCategoria.entries.map((entry) {
-                        return PieChartSectionData(
-                          color: _getCorCategoria(entry.key),
-                          value: entry.value,
-                          showTitle: false, 
-                          badgeWidget: Icon(
-                            _getIconeCategoria(entry.key),
-                            color: Colors.black87, 
-                            size: 20, 
+                // --- NOVO GRÁFICO DE BARRAS HORIZONTAIS CUSTOMIZADO ---
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                  child: Column(
+                    children: categoriasOrdenadas.map((categoria) {
+                      final valor = totaisPorCategoria[categoria]!;
+                      final percentual = totalGasto > 0 ? (valor / totalGasto) * 100 : 0.0;
+                      final cor = _getCorCategoria(categoria);
+                      final icone = _getIconeCategoria(categoria);
+
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12.0), // Espaçamento reduzido entre as barras
+                        child: Tooltip(
+                          // Tooltip customizado com as cores da marca
+                          message: '$categoria\nTotal: R\$ ${valor.toStringAsFixed(2)}',
+                          triggerMode: TooltipTriggerMode.tap, // Permite tocar no celular ou passar o mouse no PC
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1E1E1E).withOpacity(0.95), // Fundo escuro apagado
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.white12),
                           ),
-                          badgePositionPercentageOffset: 0.55, 
-                          radius: 100, 
-                        );
-                      }).toList(),
-                      centerSpaceRadius: 0, 
-                      sectionsSpace: 2, 
-                    ),
+                          textStyle: const TextStyle(
+                            color: Color(0xFFFFD700), // Cor amarela da marca
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                            letterSpacing: 0,
+                          ),
+                          child: Row(
+                            children: [
+                              // Ícone da categoria (Substituindo o nome, conforme a imagem)
+                              SizedBox(
+                                width: 36, // Largura fixa para alinhar as barras
+                                child: Icon(icone, color: cor, size: 26),
+                              ),
+                              const SizedBox(width: 8),
+                              
+                              // Barra Horizontal Mágica + Porcentagem
+                              Expanded(
+                                child: LayoutBuilder(
+                                  builder: (context, constraints) {
+                                    // Deixa um espaço reservado de 45 pixels para o texto da porcentagem caber
+                                    final espacoLivre = constraints.maxWidth - 45;
+                                    
+                                    // Calcula o tamanho da barra em relação ao maior gasto do mês
+                                    double tamanhoDaBarra = 0;
+                                    if (maxValorGasto > 0) {
+                                      tamanhoDaBarra = (valor / maxValorGasto) * espacoLivre;
+                                    }
+
+                                    return Row(
+                                      children: [
+                                        // A Barra Colorida
+                                        Container(
+                                          height: 28, // Espessura da barra
+                                          width: tamanhoDaBarra > 2 ? tamanhoDaBarra : 2, // Garante que nunca suma
+                                          decoration: BoxDecoration(
+                                            color: cor,
+                                            // Leve arredondamento na ponta direita para ficar moderno
+                                            borderRadius: const BorderRadius.horizontal(right: Radius.circular(4)),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        
+                                        // O Texto da Porcentagem
+                                        SizedBox(
+                                          width: 37, // Limita o espaço do texto para não quebrar a tela
+                                          child: Text(
+                                            '${percentual.toStringAsFixed(1)}%',
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 12,
+                                              letterSpacing: 0,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    );
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }).toList(),
                   ),
                 ),
               const SizedBox(height: 30),
@@ -340,9 +413,9 @@ class _DashboardTabState extends State<DashboardTab> {
                 ListView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(), 
-                  itemCount: totaisPorCategoria.length,
+                  itemCount: categoriasOrdenadas.length,
                   itemBuilder: (context, index) {
-                    final categoria = totaisPorCategoria.keys.elementAt(index);
+                    final categoria = categoriasOrdenadas[index];
                     final totalDaCategoria = totaisPorCategoria[categoria]!;
                     final transacoesDaCategoria = listaPorCategoria[categoria]!;
 

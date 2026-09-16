@@ -23,7 +23,7 @@ class _InserirGastoTabState extends State<InserirGastoTab> {
     locale: 'pt_BR', symbol: 'R\$', decimalDigits: 2,
   );
 
-  // Mapeamento atualizado conforme a nova imagem enviada
+  // Mapeamento atualizado
   final Map<String, List<String>> _mapaDespesas = {
     'Moradia': ['Aluguel/Prestação', 'Condomínio', 'Energia Elétrica', 'Água', 'Gás', 'Internet', 'Manutenção e Reparos'],
     'Alimentação': ['Supermercado', 'Padaria', 'Restaurantes/Lanches fora', 'Delivery'],
