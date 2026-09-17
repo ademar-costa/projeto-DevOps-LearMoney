@@ -10,10 +10,8 @@ class PerfilTab extends StatefulWidget {
 }
 
 class _PerfilTabState extends State<PerfilTab> {
-  // Puxa o usuário atual logado no Firebase
   User? usuario = FirebaseAuth.instance.currentUser;
 
-  // Função para deslogar do aplicativo
   Future<void> _sair() async {
     await FirebaseAuth.instance.signOut();
     if (mounted) {
@@ -24,7 +22,6 @@ class _PerfilTabState extends State<PerfilTab> {
     }
   }
 
-  // Função para exibir a janela de edição de nome
   void _editarPerfil() {
     final nomeController = TextEditingController(text: usuario?.displayName ?? '');
     bool carregando = false;
@@ -57,11 +54,9 @@ class _PerfilTabState extends State<PerfilTab> {
                   onPressed: carregando ? null : () async {
                     setStateDialog(() => carregando = true);
                     try {
-                      // Atualiza o nome no Firebase
                       await usuario?.updateDisplayName(nomeController.text.trim());
-                      await usuario?.reload(); // Recarrega os dados do usuário
+                      await usuario?.reload(); 
                       
-                      // Atualiza a tela de perfil com o novo nome
                       setState(() {
                         usuario = FirebaseAuth.instance.currentUser;
                       });
@@ -90,75 +85,110 @@ class _PerfilTabState extends State<PerfilTab> {
 
   @override
   Widget build(BuildContext context) {
-    // Verifica se a foto existe, senão usa um ícone padrão
     final fotoUrl = usuario?.photoURL;
     final nome = usuario?.displayName ?? 'Usuário';
     final email = usuario?.email ?? 'Sem e-mail';
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          const SizedBox(height: 32),
-          
-          // --- FOTO DE PERFIL ---
-          CircleAvatar(
-            radius: 60,
-            backgroundColor: const Color(0xFF2C2C2C),
-            backgroundImage: fotoUrl != null ? NetworkImage(fotoUrl) : null,
-            child: fotoUrl == null 
-                ? const Icon(Icons.person, size: 60, color: Color(0xFFFFD700)) 
-                : null,
-          ),
-          const SizedBox(height: 24),
-          
-          // --- NOME E E-MAIL ---
-          Text(
-            nome,
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 0),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            email,
-            style: const TextStyle(fontSize: 16, color: Colors.white54, letterSpacing: 0),
-          ),
-          const SizedBox(height: 48),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWeb = constraints.maxWidth >= 800;
 
-          // --- BOTÃO EDITAR PERFIL ---
-          SizedBox(
-            width: double.infinity,
-            height: 50,
-            child: ElevatedButton.icon(
-              onPressed: _editarPerfil,
-              icon: const Icon(Icons.edit, color: Colors.black),
-              label: const Text('Editar Perfil', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 0)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFFD700),
-                foregroundColor: Colors.black,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        // Se for Web, o fundo da tela é transparente (vaza o bege). No celular é o preto padrão.
+        final corFundoTela = isWeb ? Colors.transparent : const Color(0xFF121212);
+
+        return Container(
+          color: corFundoTela,
+          child: SingleChildScrollView(
+            padding: isWeb ? const EdgeInsets.symmetric(vertical: 40.0, horizontal: 32.0) : const EdgeInsets.all(24.0),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: isWeb ? 700 : double.infinity),
+                
+                // --- INÍCIO DO CARTÃO DA WEB ---
+                child: Container(
+                  padding: isWeb ? const EdgeInsets.all(40.0) : EdgeInsets.zero,
+                  decoration: isWeb ? BoxDecoration(
+                    color: const Color(0xFF1E1E1E), // Cor escura do cartão
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 4))],
+                  ) : null,
+                  
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      // Se for celular a margem já vem do padding, na Web o card já dá o respiro
+                      if (!isWeb) const SizedBox(height: 32),
+                      
+                      // --- FOTO DE PERFIL ---
+                      CircleAvatar(
+                        radius: 60,
+                        backgroundColor: const Color(0xFF2C2C2C),
+                        backgroundImage: fotoUrl != null ? NetworkImage(fotoUrl) : null,
+                        child: fotoUrl == null 
+                            ? const Icon(Icons.person, size: 60, color: Color(0xFFFFD700)) 
+                            : null,
+                      ),
+                      const SizedBox(height: 24),
+                      
+                      // --- NOME E E-MAIL ---
+                      Text(
+                        nome,
+                        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 0),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        email,
+                        style: const TextStyle(fontSize: 16, color: Colors.white54, letterSpacing: 0),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 48),
+
+                      // --- BOTÃO EDITAR PERFIL (COMPACTO NA WEB) ---
+                      Center(
+                        child: SizedBox(
+                          width: isWeb ? 300 : double.infinity,
+                          height: 50,
+                          child: ElevatedButton.icon(
+                            onPressed: _editarPerfil,
+                            icon: const Icon(Icons.edit, color: Colors.black),
+                            label: const Text('Editar Perfil', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 0)),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFFFD700),
+                              foregroundColor: Colors.black,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // --- BOTÃO SAIR (COMPACTO NA WEB) ---
+                      Center(
+                        child: SizedBox(
+                          width: isWeb ? 300 : double.infinity,
+                          height: 50,
+                          child: OutlinedButton.icon(
+                            onPressed: _sair,
+                            icon: const Icon(Icons.logout, color: Colors.redAccent),
+                            label: const Text('Sair do Aplicativo', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 0)),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.redAccent,
+                              side: const BorderSide(color: Colors.redAccent),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // --- FIM DO CARTÃO DA WEB ---
               ),
             ),
           ),
-          const SizedBox(height: 16),
-
-          // --- BOTÃO SAIR ---
-          SizedBox(
-            width: double.infinity,
-            height: 50,
-            child: OutlinedButton.icon(
-              onPressed: _sair,
-              icon: const Icon(Icons.logout, color: Colors.redAccent),
-              label: const Text('Sair do Aplicativo', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 0)),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.redAccent,
-                side: const BorderSide(color: Colors.redAccent),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-          ),
-        ],
-      ),
+        );
+      }
     );
   }
 }

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:fl_chart/fl_chart.dart'; // Mantido para o Gráfico Anual
+import 'package:fl_chart/fl_chart.dart';
 
 class DashboardTab extends StatefulWidget {
   const DashboardTab({super.key});
@@ -13,17 +13,8 @@ class DashboardTab extends StatefulWidget {
 class _DashboardTabState extends State<DashboardTab> {
   DateTime _dataSelecionada = DateTime.now();
 
-  void _mesAnterior() {
-    setState(() {
-      _dataSelecionada = DateTime(_dataSelecionada.year, _dataSelecionada.month - 1, 1);
-    });
-  }
-
-  void _proximoMes() {
-    setState(() {
-      _dataSelecionada = DateTime(_dataSelecionada.year, _dataSelecionada.month + 1, 1);
-    });
-  }
+  void _mesAnterior() => setState(() => _dataSelecionada = DateTime(_dataSelecionada.year, _dataSelecionada.month - 1, 1));
+  void _proximoMes() => setState(() => _dataSelecionada = DateTime(_dataSelecionada.year, _dataSelecionada.month + 1, 1));
 
   Color _getCorCategoria(String categoria) {
     switch (categoria) {
@@ -67,27 +58,16 @@ class _DashboardTabState extends State<DashboardTab> {
         title: const Text('Excluir Gasto', style: TextStyle(color: Colors.redAccent)),
         content: Text('Tem certeza que deseja apagar "$subcategoria"?', style: const TextStyle(color: Colors.white)),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar', style: TextStyle(color: Colors.white54)),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar', style: TextStyle(color: Colors.white54))),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
             onPressed: () async {
               Navigator.pop(context);
               final usuario = FirebaseAuth.instance.currentUser;
               if (usuario != null) {
-                await FirebaseFirestore.instance
-                    .collection('usuarios')
-                    .doc(usuario.uid)
-                    .collection('transacoes')
-                    .doc(docId)
-                    .delete();
-                
+                await FirebaseFirestore.instance.collection('usuarios').doc(usuario.uid).collection('transacoes').doc(docId).delete();
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Gasto excluído com sucesso!'), backgroundColor: Colors.green),
-                  );
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Gasto excluído com sucesso!'), backgroundColor: Colors.green));
                 }
               }
             },
@@ -98,7 +78,90 @@ class _DashboardTabState extends State<DashboardTab> {
     );
   }
 
-  void _abrirGraficoAnual(BuildContext context, Map<int, Map<String, double>> gastosPorMes) {
+  List<BarChartGroupData> _gerarDadosDoGraficoAnual(Map<int, Map<String, double>> gastosPorMes, double larguraBarra) {
+    List<BarChartGroupData> grupos = [];
+    for (int i = 1; i <= 12; i++) {
+      final mesData = gastosPorMes[i] ?? {};
+      double alturaBase = 0;
+      List<BarChartRodStackItem> pilhas = [];
+      
+      mesData.forEach((categoria, valor) {
+        if (valor > 0) {
+          pilhas.add(BarChartRodStackItem(alturaBase, alturaBase + valor, _getCorCategoria(categoria)));
+          alturaBase += valor;
+        }
+      });
+
+      grupos.add(
+        BarChartGroupData(
+          x: i,
+          barRods: [
+            BarChartRodData(
+              toY: alturaBase, 
+              width: larguraBarra, 
+              rodStackItems: pilhas, 
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(6)), 
+            )
+          ],
+        ),
+      );
+    }
+    return grupos;
+  }
+
+  Widget _buildGraficoAnualBase(Map<int, Map<String, double>> gastosPorMes, bool isWeb) {
+    return BarChart(
+      BarChartData(
+        alignment: BarChartAlignment.spaceAround,
+        barTouchData: BarTouchData(
+          enabled: true,
+          touchTooltipData: BarTouchTooltipData(
+            getTooltipColor: (group) => const Color(0xFF121212), 
+            getTooltipItem: (group, groupIndex, rod, rodIndex) {
+              return BarTooltipItem(
+                'R\$ ${rod.toY.toStringAsFixed(2)}',
+                const TextStyle(color: Color(0xFFFFD700), fontWeight: FontWeight.bold, fontSize: 14),
+              );
+            },
+          ),
+        ),
+        titlesData: FlTitlesData(
+          show: true,
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              getTitlesWidget: (value, meta) {
+                const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+                if (value.toInt() >= 1 && value.toInt() <= 12) {
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 8.0),
+                    child: Text(meses[value.toInt() - 1], style: const TextStyle(color: Color(0xFFFFD700), fontSize: 12, letterSpacing: 0)),
+                  );
+                }
+                return const Text('');
+              },
+            ),
+          ),
+          leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        ),
+        gridData: FlGridData(
+          show: true,
+          drawVerticalLine: false,
+          getDrawingHorizontalLine: (value) => const FlLine(
+            color: Colors.white12, 
+            strokeWidth: 1,
+            dashArray: [5, 5], 
+          ),
+        ),
+        borderData: FlBorderData(show: false),
+        barGroups: _gerarDadosDoGraficoAnual(gastosPorMes, isWeb ? 45.0 : 16.0),
+      ),
+    );
+  }
+
+  void _abrirGraficoAnualNoCelular(BuildContext context, Map<int, Map<String, double>> gastosPorMes) {
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF1E1E1E),
@@ -123,35 +186,7 @@ class _DashboardTabState extends State<DashboardTab> {
                   ],
                 ),
                 const SizedBox(height: 20),
-                Expanded(
-                  child: BarChart(
-                    BarChartData(
-                      alignment: BarChartAlignment.spaceAround,
-                      barTouchData: BarTouchData(enabled: true),
-                      titlesData: FlTitlesData(
-                        show: true,
-                        bottomTitles: AxisTitles(
-                          sideTitles: SideTitles(
-                            showTitles: true,
-                            getTitlesWidget: (value, meta) {
-                              const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-                              if (value.toInt() >= 1 && value.toInt() <= 12) {
-                                return Text(meses[value.toInt() - 1], style: const TextStyle(color: Color(0xFFFFD700), fontSize: 10, letterSpacing: 0));
-                              }
-                              return const Text('');
-                            },
-                          ),
-                        ),
-                        leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                        topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                        rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                      ),
-                      gridData: const FlGridData(show: false),
-                      borderData: FlBorderData(show: false),
-                      barGroups: _gerarDadosDoGraficoAnual(gastosPorMes),
-                    ),
-                  ),
-                ),
+                Expanded(child: _buildGraficoAnualBase(gastosPorMes, false)), 
               ],
             ),
           ),
@@ -160,63 +195,165 @@ class _DashboardTabState extends State<DashboardTab> {
     );
   }
 
-  List<BarChartGroupData> _gerarDadosDoGraficoAnual(Map<int, Map<String, double>> gastosPorMes) {
-    List<BarChartGroupData> grupos = [];
-    for (int i = 1; i <= 12; i++) {
-      final mesData = gastosPorMes[i] ?? {};
-      double alturaBase = 0;
-      List<BarChartRodStackItem> pilhas = [];
-      
-      mesData.forEach((categoria, valor) {
-        if (valor > 0) {
-          pilhas.add(BarChartRodStackItem(alturaBase, alturaBase + valor, _getCorCategoria(categoria)));
-          alturaBase += valor;
-        }
-      });
-
-      grupos.add(
-        BarChartGroupData(
-          x: i,
-          barRods: [
-            BarChartRodData(
-              toY: alturaBase,
-              width: 16,
-              rodStackItems: pilhas,
-              borderRadius: BorderRadius.zero,
-            ),
-          ],
-        ),
+  Widget _buildListaCategorias(List<String> categoriasOrdenadas, Map<String, double> totaisPorCategoria, Map<String, List<Map<String, dynamic>>> listaPorCategoria) {
+    if (totaisPorCategoria.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.only(top: 16.0),
+        child: Center(child: Text('A lista está vazia para o período selecionado.', style: TextStyle(color: Colors.white54))),
       );
     }
-    return grupos;
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(), 
+      itemCount: categoriasOrdenadas.length,
+      itemBuilder: (context, index) {
+        final categoria = categoriasOrdenadas[index];
+        final totalDaCategoria = totaisPorCategoria[categoria]!;
+        final transacoesDaCategoria = listaPorCategoria[categoria]!;
+
+        return Card(
+          color: const Color(0xFF2C2C2C),
+          margin: const EdgeInsets.only(bottom: 12),
+          clipBehavior: Clip.antiAlias, 
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              iconColor: const Color(0xFFFFD700),
+              collapsedIconColor: Colors.white54,
+              leading: CircleAvatar(
+                backgroundColor: _getCorCategoria(categoria).withOpacity(0.2),
+                child: Icon(_getIconeCategoria(categoria), color: _getCorCategoria(categoria)),
+              ),
+              title: Text(categoria, style: const TextStyle(color: Color(0xFFFFD700), fontWeight: FontWeight.bold)), 
+              trailing: Text('R\$ ${totalDaCategoria.toStringAsFixed(2)}', style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 0)), 
+              
+              children: transacoesDaCategoria.map((transacao) {
+                final docId = transacao['id'] as String; 
+                final subcategoria = transacao['subcategoria'] ?? 'Outros';
+                final valorGasto = (transacao['valor'] as num).toDouble();
+                final dataCompra = (transacao['data'] as Timestamp).toDate();
+                final dataFormatada = '${dataCompra.day.toString().padLeft(2, '0')}/${dataCompra.month.toString().padLeft(2, '0')}/${dataCompra.year}';
+                final descricao = transacao['descricao'] as String?;
+                final temDescricao = descricao != null && descricao.trim().isNotEmpty;
+
+                return ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+                  title: Text(subcategoria, style: const TextStyle(color: Colors.white70)),
+                  subtitle: Text(dataFormatada, style: const TextStyle(color: Colors.white54, fontSize: 12, letterSpacing: 0)),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (temDescricao)
+                        IconButton(
+                          icon: const Icon(Icons.chat_bubble_outline, color: Color(0xFFFFD700), size: 20),
+                          onPressed: () {
+                            showDialog(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                backgroundColor: const Color(0xFF2C2C2C),
+                                title: const Text('Observação', style: TextStyle(color: Color(0xFFFFD700))),
+                                content: Text(descricao, style: const TextStyle(color: Colors.white)),
+                                actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Fechar', style: TextStyle(color: Color(0xFFFFD700))))],
+                              ),
+                            );
+                          },
+                        ),
+                      Text('R\$ ${valorGasto.toStringAsFixed(2)}', style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, letterSpacing: 0)), 
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline, color: Colors.white38, size: 20),
+                        onPressed: () => _confirmarExclusao(context, docId, subcategoria),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildBarrasHorizontais(List<String> categoriasOrdenadas, Map<String, double> totaisPorCategoria, double totalGasto, double maxValorGasto) {
+    if (totaisPorCategoria.isEmpty) {
+      return const SizedBox(
+        height: 150,
+        child: Center(child: Text('Nenhum gasto neste mês.', style: TextStyle(color: Colors.white54, fontSize: 16))),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Column(
+        children: categoriasOrdenadas.map((categoria) {
+          final valor = totaisPorCategoria[categoria]!;
+          final percentual = totalGasto > 0 ? (valor / totalGasto) * 100 : 0.0;
+          final cor = _getCorCategoria(categoria);
+          final icone = _getIconeCategoria(categoria);
+
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12.0),
+            child: Tooltip(
+              message: '$categoria\nTotal: R\$ ${valor.toStringAsFixed(2)}',
+              triggerMode: TooltipTriggerMode.tap,
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E1E1E).withOpacity(0.95),
+                borderRadius: BorderRadius.circular(8),
+                // --- BORDA BRANCA REMOVIDA DAQUI ---
+              ),
+              textStyle: const TextStyle(color: Color(0xFFFFD700), fontWeight: FontWeight.bold, fontSize: 14, letterSpacing: 0),
+              child: Row(
+                children: [
+                  SizedBox(width: 36, child: Icon(icone, color: cor, size: 26)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final espacoLivre = constraints.maxWidth - 45;
+                        double tamanhoDaBarra = 0;
+                        if (maxValorGasto > 0) tamanhoDaBarra = (valor / maxValorGasto) * espacoLivre;
+
+                        return Row(
+                          children: [
+                            Container(
+                              height: 28,
+                              width: tamanhoDaBarra > 2 ? tamanhoDaBarra : 2,
+                              decoration: BoxDecoration(color: cor, borderRadius: const BorderRadius.horizontal(right: Radius.circular(4))),
+                            ),
+                            const SizedBox(width: 8),
+                            SizedBox(
+                              width: 37,
+                              child: Text('${percentual.toStringAsFixed(1)}%', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 0)),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final usuario = FirebaseAuth.instance.currentUser;
-
-    if (usuario == null) {
-      return const Center(child: Text('Usuário não autenticado', style: TextStyle(color: Color(0xFFFFD700))));
-    }
+    if (usuario == null) return const Center(child: Text('Usuário não autenticado', style: TextStyle(color: Color(0xFFFFD700))));
 
     const listaMeses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
     final nomeMesAtual = '${listaMeses[_dataSelecionada.month - 1]} ${_dataSelecionada.year}';
 
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('usuarios')
-          .doc(usuario.uid)
-          .collection('transacoes')
-          .orderBy('data', descending: true) 
-          .snapshots(),
+      stream: FirebaseFirestore.instance.collection('usuarios').doc(usuario.uid).collection('transacoes').orderBy('data', descending: true).snapshots(),
       builder: (context, snapshot) {
         
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator(color: Color(0xFFFFD700)));
-        }
+        if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator(color: Color(0xFFFFD700)));
 
         final transacoes = snapshot.data?.docs ?? [];
-
         double totalGasto = 0;
         Map<String, double> totaisPorCategoria = {};
         Map<String, List<Map<String, dynamic>>> listaPorCategoria = {};
@@ -232,265 +369,148 @@ class _DashboardTabState extends State<DashboardTab> {
 
           if (dataOriginal.year == _dataSelecionada.year) {
             final mes = dataOriginal.month;
-            if (!gastosPorMes.containsKey(mes)) {
-              gastosPorMes[mes] = {};
-            }
+            if (!gastosPorMes.containsKey(mes)) gastosPorMes[mes] = {};
             gastosPorMes[mes]![categoria] = (gastosPorMes[mes]![categoria] ?? 0) + valor;
           }
 
           if (dataOriginal.year == _dataSelecionada.year && dataOriginal.month == _dataSelecionada.month) {
             totalGasto += valor;
-
             totaisPorCategoria[categoria] = (totaisPorCategoria[categoria] ?? 0) + valor;
-            if (!listaPorCategoria.containsKey(categoria)) {
-              listaPorCategoria[categoria] = [];
-            }
+            if (!listaPorCategoria.containsKey(categoria)) listaPorCategoria[categoria] = [];
             listaPorCategoria[categoria]!.add(dados);
           }
         }
 
-        // Ordena do maior gasto para o menor
-        final categoriasOrdenadas = totaisPorCategoria.keys.toList()
-          ..sort((a, b) => totaisPorCategoria[b]!.compareTo(totaisPorCategoria[a]!));
+        final categoriasOrdenadas = totaisPorCategoria.keys.toList()..sort((a, b) => totaisPorCategoria[b]!.compareTo(totaisPorCategoria[a]!));
+        double maxValorGasto = totaisPorCategoria.isNotEmpty ? totaisPorCategoria.values.reduce((a, b) => a > b ? a : b) : 0;
 
-        // Descobre qual foi o maior valor gasto para calcular o tamanho máximo da barra
-        double maxValorGasto = 0;
-        if (totaisPorCategoria.isNotEmpty) {
-          maxValorGasto = totaisPorCategoria.values.reduce((a, b) => a > b ? a : b);
-        }
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final isWeb = constraints.maxWidth >= 800;
 
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+            if (isWeb) {
+              return SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(vertical: 32.0, horizontal: 64.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(32.0),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1E1E1E), 
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 4))],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          const Text('Total Gasto', style: TextStyle(fontSize: 16, color: Color(0xFFFFD700), fontWeight: FontWeight.bold)),
-                          const SizedBox(width: 8),
-                          IconButton(
-                            icon: const Icon(Icons.chevron_left, color: Colors.grey, size: 24),
-                            onPressed: _mesAnterior,
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
+                          Row(
+                            children: [
+                              const Text('Total Gasto', style: TextStyle(fontSize: 16, color: Color(0xFFFFD700), fontWeight: FontWeight.bold)),
+                              const SizedBox(width: 8),
+                              IconButton(icon: const Icon(Icons.chevron_left, color: Colors.grey, size: 24), onPressed: _mesAnterior, padding: EdgeInsets.zero, constraints: const BoxConstraints()),
+                              Text(nomeMesAtual, style: const TextStyle(fontSize: 14, color: Colors.grey, letterSpacing: 0)),
+                              IconButton(icon: const Icon(Icons.chevron_right, color: Colors.grey, size: 24), onPressed: _proximoMes, padding: EdgeInsets.zero, constraints: const BoxConstraints()),
+                            ],
                           ),
-                          Text(nomeMesAtual, style: const TextStyle(fontSize: 14, color: Colors.grey, letterSpacing: 0)),
-                          IconButton(
-                            icon: const Icon(Icons.chevron_right, color: Colors.grey, size: 24),
-                            onPressed: _proximoMes,
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
+                          const SizedBox(height: 4),
+                          Text('R\$ ${totalGasto.toStringAsFixed(2)}', style: const TextStyle(fontSize: 28, color: Colors.redAccent, fontWeight: FontWeight.bold, letterSpacing: 0)),
+                          const SizedBox(height: 30),
+                          _buildBarrasHorizontais(categoriasOrdenadas, totaisPorCategoria, totalGasto, maxValorGasto),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+
+                    Container(
+                      padding: const EdgeInsets.all(32.0),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1E1E1E),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 4))],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const Text('Categorias e Subcategorias', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFFFFD700))), 
+                          const SizedBox(height: 16),
+                          _buildListaCategorias(categoriasOrdenadas, totaisPorCategoria, listaPorCategoria),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+
+                    Container(
+                      padding: const EdgeInsets.all(32.0),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1E1E1E),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 4))],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text('Histórico Anual (${_dataSelecionada.year})', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFFFFD700))), 
+                          const SizedBox(height: 30),
+                          SizedBox(
+                            height: 300,
+                            child: _buildGraficoAnualBase(gastosPorMes, true), 
                           ),
                         ],
                       ),
-                      const SizedBox(height: 4),
-                      Text('R\$ ${totalGasto.toStringAsFixed(2)}', style: const TextStyle(fontSize: 28, color: Colors.redAccent, fontWeight: FontWeight.bold, letterSpacing: 0)),
-                    ],
-                  ),
-                  ElevatedButton.icon(
-                    onPressed: () => _abrirGraficoAnual(context, gastosPorMes),
-                    icon: const Icon(Icons.bar_chart, color: Colors.black),
-                    label: const Text('Anual', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFFD700), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                  )
-                ],
-              ),
-              const SizedBox(height: 30),
-              
-              if (totaisPorCategoria.isEmpty)
-                const SizedBox(
-                  height: 220,
-                  child: Center(
-                    child: Text('Nenhum gasto neste mês.', style: TextStyle(color: Colors.white54, fontSize: 16)),
-                  ),
-                )
-              else
-                // --- NOVO GRÁFICO DE BARRAS HORIZONTAIS CUSTOMIZADO ---
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8.0),
-                  child: Column(
-                    children: categoriasOrdenadas.map((categoria) {
-                      final valor = totaisPorCategoria[categoria]!;
-                      final percentual = totalGasto > 0 ? (valor / totalGasto) * 100 : 0.0;
-                      final cor = _getCorCategoria(categoria);
-                      final icone = _getIconeCategoria(categoria);
-
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 12.0), // Espaçamento reduzido entre as barras
-                        child: Tooltip(
-                          // Tooltip customizado com as cores da marca
-                          message: '$categoria\nTotal: R\$ ${valor.toStringAsFixed(2)}',
-                          triggerMode: TooltipTriggerMode.tap, // Permite tocar no celular ou passar o mouse no PC
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF1E1E1E).withOpacity(0.95), // Fundo escuro apagado
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.white12),
-                          ),
-                          textStyle: const TextStyle(
-                            color: Color(0xFFFFD700), // Cor amarela da marca
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                            letterSpacing: 0,
-                          ),
-                          child: Row(
-                            children: [
-                              // Ícone da categoria (Substituindo o nome, conforme a imagem)
-                              SizedBox(
-                                width: 36, // Largura fixa para alinhar as barras
-                                child: Icon(icone, color: cor, size: 26),
-                              ),
-                              const SizedBox(width: 8),
-                              
-                              // Barra Horizontal Mágica + Porcentagem
-                              Expanded(
-                                child: LayoutBuilder(
-                                  builder: (context, constraints) {
-                                    // Deixa um espaço reservado de 45 pixels para o texto da porcentagem caber
-                                    final espacoLivre = constraints.maxWidth - 45;
-                                    
-                                    // Calcula o tamanho da barra em relação ao maior gasto do mês
-                                    double tamanhoDaBarra = 0;
-                                    if (maxValorGasto > 0) {
-                                      tamanhoDaBarra = (valor / maxValorGasto) * espacoLivre;
-                                    }
-
-                                    return Row(
-                                      children: [
-                                        // A Barra Colorida
-                                        Container(
-                                          height: 28, // Espessura da barra
-                                          width: tamanhoDaBarra > 2 ? tamanhoDaBarra : 2, // Garante que nunca suma
-                                          decoration: BoxDecoration(
-                                            color: cor,
-                                            // Leve arredondamento na ponta direita para ficar moderno
-                                            borderRadius: const BorderRadius.horizontal(right: Radius.circular(4)),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        
-                                        // O Texto da Porcentagem
-                                        SizedBox(
-                                          width: 37, // Limita o espaço do texto para não quebrar a tela
-                                          child: Text(
-                                            '${percentual.toStringAsFixed(1)}%',
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 12,
-                                              letterSpacing: 0,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    );
-                                  },
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
+                    ),
+                    const SizedBox(height: 32),
+                  ],
                 ),
-              const SizedBox(height: 30),
-
-              const Text('Despesas por Categoria', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFFFFD700))), 
-              const SizedBox(height: 16),
-
-              if (totaisPorCategoria.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.only(top: 16.0),
-                  child: Text('A lista está vazia para o período selecionado.', style: TextStyle(color: Colors.white54)),
-                )
-              else
-                ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(), 
-                  itemCount: categoriasOrdenadas.length,
-                  itemBuilder: (context, index) {
-                    final categoria = categoriasOrdenadas[index];
-                    final totalDaCategoria = totaisPorCategoria[categoria]!;
-                    final transacoesDaCategoria = listaPorCategoria[categoria]!;
-
-                    return Card(
-                      color: const Color(0xFF2C2C2C),
-                      margin: const EdgeInsets.only(bottom: 12),
-                      clipBehavior: Clip.antiAlias, 
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      child: Theme(
-                        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-                        child: ExpansionTile(
-                          iconColor: const Color(0xFFFFD700),
-                          collapsedIconColor: Colors.white54,
-                          leading: CircleAvatar(
-                            backgroundColor: _getCorCategoria(categoria).withOpacity(0.2),
-                            child: Icon(_getIconeCategoria(categoria), color: _getCorCategoria(categoria)),
-                          ),
-                          title: Text(categoria, style: const TextStyle(color: Color(0xFFFFD700), fontWeight: FontWeight.bold)), 
-                          trailing: Text('R\$ ${totalDaCategoria.toStringAsFixed(2)}', style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 0)), 
-                          
-                          children: transacoesDaCategoria.map((transacao) {
-                            final docId = transacao['id'] as String; 
-                            
-                            final subcategoria = transacao['subcategoria'] ?? 'Outros';
-                            final valorGasto = (transacao['valor'] as num).toDouble();
-                            final dataCompra = (transacao['data'] as Timestamp).toDate();
-                            final dataFormatada = '${dataCompra.day.toString().padLeft(2, '0')}/${dataCompra.month.toString().padLeft(2, '0')}/${dataCompra.year}';
-                            
-                            final descricao = transacao['descricao'] as String?;
-                            final temDescricao = descricao != null && descricao.trim().isNotEmpty;
-
-                            return ListTile(
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
-                              title: Text(subcategoria, style: const TextStyle(color: Colors.white70)),
-                              subtitle: Text(dataFormatada, style: const TextStyle(color: Colors.white54, fontSize: 12, letterSpacing: 0)),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  if (temDescricao)
-                                    IconButton(
-                                      icon: const Icon(Icons.chat_bubble_outline, color: Color(0xFFFFD700), size: 20),
-                                      onPressed: () {
-                                        showDialog(
-                                          context: context,
-                                          builder: (context) => AlertDialog(
-                                            backgroundColor: const Color(0xFF2C2C2C),
-                                            title: const Text('Observação', style: TextStyle(color: Color(0xFFFFD700))),
-                                            content: Text(descricao, style: const TextStyle(color: Colors.white)),
-                                            actions: [
-                                              TextButton(
-                                                onPressed: () => Navigator.pop(context),
-                                                child: const Text('Fechar', style: TextStyle(color: Color(0xFFFFD700))),
-                                              ),
-                                            ],
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  Text('R\$ ${valorGasto.toStringAsFixed(2)}', style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, letterSpacing: 0)), 
-                                  
-                                  IconButton(
-                                    icon: const Icon(Icons.delete_outline, color: Colors.white38, size: 20),
-                                    onPressed: () => _confirmarExclusao(context, docId, subcategoria),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }).toList(),
+              );
+            } 
+            
+            else {
+              return SingleChildScrollView(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Text('Total Gasto', style: TextStyle(fontSize: 16, color: Color(0xFFFFD700), fontWeight: FontWeight.bold)),
+                                const SizedBox(width: 8),
+                                IconButton(icon: const Icon(Icons.chevron_left, color: Colors.grey, size: 24), onPressed: _mesAnterior, padding: EdgeInsets.zero, constraints: const BoxConstraints()),
+                                Text(nomeMesAtual, style: const TextStyle(fontSize: 14, color: Colors.grey, letterSpacing: 0)),
+                                IconButton(icon: const Icon(Icons.chevron_right, color: Colors.grey, size: 24), onPressed: _proximoMes, padding: EdgeInsets.zero, constraints: const BoxConstraints()),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text('R\$ ${totalGasto.toStringAsFixed(2)}', style: const TextStyle(fontSize: 28, color: Colors.redAccent, fontWeight: FontWeight.bold, letterSpacing: 0)),
+                          ],
                         ),
-                      ),
-                    );
-                  },
+                        ElevatedButton.icon(
+                          onPressed: () => _abrirGraficoAnualNoCelular(context, gastosPorMes),
+                          icon: const Icon(Icons.bar_chart, color: Colors.black),
+                          label: const Text('Anual', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFFD700), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                        )
+                      ],
+                    ),
+                    const SizedBox(height: 30),
+                    
+                    _buildBarrasHorizontais(categoriasOrdenadas, totaisPorCategoria, totalGasto, maxValorGasto),
+                    const SizedBox(height: 30),
+
+                    const Text('Despesas por Categoria', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFFFFD700))), 
+                    const SizedBox(height: 16),
+                    _buildListaCategorias(categoriasOrdenadas, totaisPorCategoria, listaPorCategoria),
+                  ],
                 ),
-            ],
-          ),
+              );
+            }
+          }
         );
       },
     );
